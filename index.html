@@ -8,6 +8,25 @@
 </head>
 <body>
 
+<!-- ── SPLASH SCREEN ──────────────────────────────────────────── -->
+<div id="splashScreen" class="splash-screen">
+    <div class="splash-card">
+        <h1 class="splash-title-line1">GBB Strategy</h1>
+        <h1 class="splash-title-line2">Super Pollutant Data</h1>
+        <p class="splash-subtitle">Global super pollutant regulations, emissions &amp; corporate exposure tool</p>
+        <div class="splash-choices">
+            <button class="splash-btn splash-btn-map" onclick="enterMapMode()">
+                Global Map
+            </button>
+            <button class="splash-btn splash-btn-corporate" onclick="enterCorporateMode()">
+                Corporate Estimator
+            </button>
+        </div>
+    </div>
+    <div class="splash-privacy">
+        No data is stored, and GBB does not have access to the entered information
+    </div>
+</div>
 
 <div class="container">
     <!-- Top navigation tabs -->
@@ -20,6 +39,8 @@
     </div>
     <div class="map-container">
         <svg id="worldMap"></svg>
+        <!-- Corporate Estimator — persistent button, always visible above layer sidebar -->
+        <button class="corp-estimator-btn" onclick="enterCorporateMode()">Corporate<br>Estimator</button>
         <!-- Left layer sidebar - visible on Emissions tab only -->
         <div class="layer-sidebar" id="layerSidebar">
             <!-- CH4 layer button -->
@@ -206,6 +227,70 @@
     <script src="js/utils.js"></script>
     <script src="js/map.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/layers/inductive.js"></script>
+
+<!-- ── INDUCTIVE LAYER OVERLAYS ─────────────────────────────── -->
+
+<!-- Wizard overlay -->
+<div id="inductiveOverlay" class="inductive-overlay" style="display:none;">
+    <div class="inductive-wizard">
+        <div class="inductive-header">
+            <button class="inductive-back-btn" onclick="enterMapMode()">Go to Map</button>
+            <h2 class="inductive-title">Corporate Estimator</h2>
+            <div class="inductive-step-label">Step <span id="wizardStepNum">1</span> of 5</div>
+        </div>
+        <div class="wizard-step-progress">
+            <div class="step-track">
+                <div class="step-node" id="stepDot1"><div class="step-dot active"></div><div class="step-label active" id="stepLabel1">HQ</div></div>
+                <div class="step-connector"></div>
+                <div class="step-node" id="stepDot2"><div class="step-dot"></div><div class="step-label" id="stepLabel2">Sources</div></div>
+                <div class="step-connector"></div>
+                <div class="step-node" id="stepDot3"><div class="step-dot"></div><div class="step-label" id="stepLabel3">Exports</div></div>
+                <div class="step-connector"></div>
+                <div class="step-node" id="stepDot4"><div class="step-dot"></div><div class="step-label" id="stepLabel4">Industry</div></div>
+                <div class="step-connector"></div>
+                <div class="step-node" id="stepDot5"><div class="step-dot"></div><div class="step-label" id="stepLabel5">Revenue</div></div>
+            </div>
+        </div>
+        <div class="wizard-step-container" id="wizardStepContainer"></div>
+        <div id="wizardError" class="wizard-error" style="display:none;"></div>
+        <div class="wizard-footer">
+            <button class="wizard-btn wizard-btn-secondary" id="wizardPrevBtn" onclick="wizardPrev()">← Back to Map</button>
+            <button class="wizard-btn wizard-btn-primary" id="wizardNextBtn" onclick="wizardNext()">Next →</button>
+        </div>
+    </div>
+</div>
+
+<!-- Results overlay -->
+<div id="resultsOverlay" class="inductive-overlay" style="display:none;">
+    <div class="inductive-results">
+        <div class="inductive-header">
+            <button class="inductive-back-btn" onclick="backToWizard()">← Edit Profile</button>
+            <h2 class="inductive-title">Your Regulatory Exposure Profile</h2>
+            <button class="inductive-back-btn" onclick="enterMapMode()">Go to Map</button>
+        </div>
+        <div class="results-profile-summary" id="resultsProfileSummary"></div>
+        <div class="results-tabs">
+            <button class="results-tab-btn active" id="resultsTabDomestic" onclick="showResultsTab('domestic')">Domestic</button>
+            <button class="results-tab-btn" id="resultsTabIE" onclick="showResultsTab('import-export')">Import / Export</button>
+            <button class="results-tab-btn" id="resultsTabIncentives" onclick="showResultsTab('incentives')">Incentives &amp; Opportunities</button>
+            <button class="results-tab-btn" id="resultsTabVCM" onclick="showResultsTab('vcm')">VCM Projects</button>
+            <button class="results-tab-btn" id="resultsTabExposure" onclick="showResultsTab('exposure')">Pollutant Exposure</button>
+        </div>
+        <div class="results-content" id="resultsContent"></div>
+    </div>
+</div>
+
+<!-- Detail modal (regulation / biomethane / VCM popup) -->
+<div id="inductiveDetailOverlay" class="inductive-detail-overlay" style="display:none;" onclick="closeInductiveDetail()">
+    <div class="inductive-detail-panel" onclick="event.stopPropagation()">
+        <div class="inductive-detail-header">
+            <span style="font-weight:600; font-size:0.9em; color:#065f46;">Detail</span>
+            <button class="inductive-detail-close" onclick="closeInductiveDetail()">×</button>
+        </div>
+        <div id="inductiveDetailContent" class="inductive-detail-content"></div>
+    </div>
+</div>
 
 </body>
 </html>
