@@ -621,12 +621,14 @@ function renderResults() {
 
   const r = inductiveResults;
   const domCount = r.domestic.length;
-  const ieCount = r.importExport.sources.length + r.importExport.exports.length;
+  const importCount = r.importExport.sources.length;
+  const exportCount = r.importExport.exports.length;
   const incCount = r.incentives.length;
   const vcmCount = r.vcm.length;
 
   document.getElementById('resultsTabDomestic').innerHTML  = `Domestic <span class="results-tab-badge">${domCount}</span>`;
-  document.getElementById('resultsTabIE').innerHTML     = `Import / Export <span class="results-tab-badge">${ieCount}</span>`;
+  document.getElementById('resultsTabImports').innerHTML   = `Imports <span class="results-tab-badge">${importCount}</span>`;
+  document.getElementById('resultsTabExports').innerHTML   = `Exports <span class="results-tab-badge">${exportCount}</span>`;
   document.getElementById('resultsTabIncentives').innerHTML = `Incentives &amp; Opportunities <span class="results-tab-badge">${incCount}</span>`;
   document.getElementById('resultsTabVCM').innerHTML     = `VCM Projects <span class="results-tab-badge">${vcmCount}</span>`;
 
@@ -635,15 +637,16 @@ function renderResults() {
 
 function showResultsTab(tab) {
   activeResultsTab = tab;
-  const tabMap = { domestic: 'Domestic', 'import-export': 'IE', incentives: 'Incentives', vcm: 'VCM', exposure: 'Exposure' };
+  const tabMap = { domestic: 'Domestic', imports: 'Imports', exports: 'Exports', incentives: 'Incentives', vcm: 'VCM', exposure: 'Exposure' };
   document.querySelectorAll('.results-tab-btn').forEach(b => b.classList.remove('active'));
   const activeBtn = document.getElementById('resultsTab' + tabMap[tab]);
   if (activeBtn) activeBtn.classList.add('active');
   const content = document.getElementById('resultsContent');
   if (tab === 'domestic')   content.innerHTML = renderDomesticTab();
-  if (tab === 'import-export') content.innerHTML = renderImportExportTab();
-  if (tab === 'incentives')  content.innerHTML = renderIncentivesTab();
-  if (tab === 'vcm')      content.innerHTML = renderVCMTab();
+  if (tab === 'imports')    content.innerHTML = renderImportsTab();
+  if (tab === 'exports')    content.innerHTML = renderExportsTab();
+  if (tab === 'incentives') content.innerHTML = renderIncentivesTab();
+  if (tab === 'vcm')        content.innerHTML = renderVCMTab();
   if (tab === 'exposure')   content.innerHTML = renderPollutantExposureTab();
 }
 
@@ -674,28 +677,32 @@ function renderDomesticTab() {
     ${regs.map(r => regCard(r)).join('')}`;
 }
 
-function renderImportExportTab() {
-  const { sources, exports: exportRegs } = inductiveResults.importExport;
+function renderImportsTab() {
+  const sources = inductiveResults.importExport.sources;
   const sourceCountries = wizardProfile.sources.filter(c => c !== '__none__');
-  const exportCountries = wizardProfile.exports.filter(c => c !== '__none__');
-  if (sources.length === 0 && exportRegs.length === 0) {
-    if (sourceCountries.length === 0 && exportCountries.length === 0)
-      return `<div class="results-empty"><p>You indicated your company does not import or export.</p></div>`;
+  if (sourceCountries.length === 0)
+    return `<div class="results-empty"><p>You indicated your company does not import.</p></div>`;
+  if (sources.length === 0)
     return `<div class="results-empty">
-      <p>No matching regulations found in your selected import/export countries for your sector.</p>
+      <p>No matching regulations found in your sourcing countries for your sector.</p>
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
-  }
-  let html = '';
-  if (sources.length > 0) {
-    html += `<div class="results-section-label"> Sourcing Country Exposure — ${sources.length} regulations in countries you import from</h3>`;
-    html += sources.map(r => regCard(r)).join('');
-  }
-  if (exportRegs.length > 0) {
-    html += `<div class="results-section-label" style="margin-top:24px;"> Export Country Exposure — ${exportRegs.length} regulations in countries you sell to</h3>`;
-    html += exportRegs.map(r => regCard(r)).join('');
-  }
-  return html;
+  return `<h3 class="results-section-heading">Regulations in countries you source from — ${sources.length} found</h3>
+    ${sources.map(r => regCard(r)).join('')}`;
+}
+
+function renderExportsTab() {
+  const exportRegs = inductiveResults.importExport.exports;
+  const exportCountries = wizardProfile.exports.filter(c => c !== '__none__');
+  if (exportCountries.length === 0)
+    return `<div class="results-empty"><p>You indicated your company does not export.</p></div>`;
+  if (exportRegs.length === 0)
+    return `<div class="results-empty">
+      <p>No matching regulations found in your export countries for your sector.</p>
+      <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
+    </div>`;
+  return `<h3 class="results-section-heading">Regulations in countries you export to — ${exportRegs.length} found</h3>
+    ${exportRegs.map(r => regCard(r)).join('')}`;
 }
 
 function renderIncentivesTab() {
