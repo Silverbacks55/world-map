@@ -1083,11 +1083,11 @@ transform: translate(-50%, -50%) !important;
 }
 
 /* Progressive background — step 1 darkest, step 5 lightest */
-.wizard-step-bg-1 { background: #2d6a20; }
-.wizard-step-bg-2 { background: #5a9e48; }
-.wizard-step-bg-3 { background: #85c278; }
-.wizard-step-bg-4 { background: #b8ddb2; }
-.wizard-step-bg-5 { background: #dff0db; }
+.wizard-step-bg-1 { background: #1a5511; }
+.wizard-step-bg-2 { background: #3a7d2a; }
+.wizard-step-bg-3 { background: #6aac56; }
+.wizard-step-bg-4 { background: #a8d49a; }
+.wizard-step-bg-5 { background: #d6ecd1; }
 
 /* Shared header */
 .inductive-header {
@@ -1680,25 +1680,23 @@ transform: translate(-50%, -50%) !important;
 
 /* Mode switch button in map nav bar */
 .mode-switch-btn {
-    padding: 8px 14px;
+    padding: 8px 18px;
     background: white;
-    border: 2px solid #065f46;
-    border-radius: 5px;
+    border: 2px solid #1e3d0f;
+    border-radius: 6px;
     font-size: 13px;
     font-weight: 600;
-    color: #065f46;
+    color: #1e3d0f;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     white-space: nowrap;
     flex-shrink: 0;
     flex-grow: 0;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    min-width: 90px;
+    text-align: center;
 }
-
-.mode-switch-btn:hover {
-    background: #f0fdf4;
-    border-color: #047857;
-}
+.mode-switch-btn:hover { background: #f0f7ed; border-color: #1e3d0f; }
 
 /* Mobile splash */
 @media (max-width: 640px) {
@@ -1706,7 +1704,7 @@ transform: translate(-50%, -50%) !important;
     .splash-choices { flex-direction: column; gap: 16px; }
     .splash-btn { width: 100%; max-width: 320px; padding: 24px 20px; }
     .splash-divider { padding: 0; }
-    .mode-switch-btn { font-size: 11px; padding: 6px 10px; }
+    .mode-switch-btn { font-size: 11px; padding: 6px 10px; min-width: 70px; }
 }
 
 /* Corporate Estimator persistent button — top-left of map, above CH4 */
@@ -1716,25 +1714,22 @@ transform: translate(-50%, -50%) !important;
     left: 20px;
     z-index: 101;
     background: white;
-    border: 2px solid #065f46;
-    border-radius: 5px;
-    padding: 8px 12px;
+    border: 2px solid #1e3d0f;
+    border-radius: 6px;
+    padding: 8px 18px;
     font-size: 13px;
     font-weight: 600;
-    color: #065f46;
+    color: #1e3d0f;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.15s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
     text-align: center;
-    line-height: 1.4;
-    min-width: 80px;
+    min-width: 90px;
 }
-.corp-estimator-btn:hover {
-    background: #f0fdf4;
-}
+.corp-estimator-btn:hover { background: #f0f7ed; }
 
 @media (max-width: 768px) {
-    .corp-estimator-btn { font-size: 11px; padding: 6px 8px; min-width: 60px; }
+    .corp-estimator-btn { font-size: 11px; padding: 6px 10px; min-width: 70px; }
 }
 
 /* Profile summary row with Assumptions button */

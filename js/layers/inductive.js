@@ -133,33 +133,50 @@ const SECTOR_DATA = {
 };
 
 // ─── "SO WHAT" NARRATIVES ────────────────────────────────────
-function getSoWhat(reg) {
+function getSoWhat(reg, context) {
+  // context: 'domestic' | 'import' | 'export'
   const name = (reg.name || '').toLowerCase();
   const pollutants = (reg.pollutants || '').toLowerCase();
 
+  // Pronoun helpers based on context
+  const your      = context === 'import' ? 'The country you import from and its' : context === 'export' ? 'The country you export to and its' : 'Your';
+  const yourLower = context === 'import' ? 'the country you import from and its' : context === 'export' ? 'the country you export to and its' : 'your';
+  const youMay    = context === 'import' ? 'Suppliers in this country may'        : context === 'export' ? 'Buyers or operators in this market may' : 'You may';
+  const yourOps   = context === 'import' ? 'Operations in the country you import from' : context === 'export' ? 'Operations in the country you export to' : 'Your operations';
+
   if (name.includes('cbam') || name.includes('carbon border') || name.includes('border adjustment'))
-    return 'Import prices for carbon-intensive goods into this jurisdiction are likely to rise, potentially affecting your cost base and competitiveness.';
+    return context === 'export'
+      ? 'This market applies a carbon border adjustment mechanism. Carbon-intensive goods you export here may be subject to additional levies, increasing your cost to serve.'
+      : context === 'import'
+      ? 'This sourcing country has a carbon border mechanism. Goods imported from here may carry embedded carbon costs that affect your supply chain pricing.'
+      : 'Import prices for carbon-intensive goods into this jurisdiction are likely to rise, potentially affecting your cost base and competitiveness.';
+
   if (name.includes('cap-and-trade') || name.includes('cap and trade') || name.includes('emission trading') || name.includes(' ets ') || name.includes('allowances'))
-    return 'You may need to purchase and surrender emission allowances, creating direct compliance costs and ongoing monitoring and reporting obligations.';
+    return `${youMay} need to purchase and surrender emission allowances under this scheme, creating compliance costs and ongoing monitoring and reporting obligations.`;
+
   if (pollutants.includes('hfc') && (name.includes('kigali') || name.includes('hfc') || name.includes('refrigerant') || name.includes('f-gas')))
-    return 'Your refrigeration and cooling equipment may require upgrades or phase-downs. Certified technician handling, import restrictions, and regular leak inspections may apply.';
+    return `${your} refrigeration and cooling equipment may require upgrades or phase-downs. Certified technician handling, import restrictions, and regular leak inspections may apply.`;
+
   if (pollutants.includes('methane') && (name.includes('oil') || name.includes('gas') || name.includes('upstream') || name.includes('flaring') || name.includes('venting')))
-    return 'Your operations may face restrictions on venting and flaring, LDAR (leak detection and repair) program requirements, and enhanced emissions monitoring obligations.';
+    return `${yourOps} may face restrictions on venting and flaring, LDAR (leak detection and repair) program requirements, and enhanced emissions monitoring obligations.`;
+
   if (pollutants.includes('methane'))
-    return 'Methane emissions from your operations may be subject to monitoring, reporting, and reduction requirements. Waste management and agricultural operations are particularly affected.';
+    return `Methane emissions from ${yourLower} operations may be subject to monitoring, reporting, and reduction requirements. Waste management and agricultural operations are particularly affected.`;
+
   if (pollutants.includes('nox') || name.includes('air quality'))
-    return 'Your vehicles, boilers, or industrial equipment may be subject to emission limits. Fleet upgrades, operational changes, or permit requirements may apply.';
+    return `${your} vehicles, boilers, or industrial equipment may be subject to emission limits. Fleet upgrades, operational changes, or permit requirements may apply.`;
+
   if (name.includes('reporting') || name.includes('registry') || name.includes('inventory') || name.includes('disclosure'))
-    return 'You may be required to measure, verify, and report your greenhouse gas emissions publicly. This typically requires monitoring systems and third-party verification.';
+    return `${youMay} be required to measure, verify, and report greenhouse gas emissions publicly in this jurisdiction. This typically requires monitoring systems and third-party verification.`;
+
   if (name.includes('biomethane') || name.includes('renewable gas') || name.includes('biogas'))
-    return 'You may be eligible for incentives or subsidies related to biomethane production or use, which could offset compliance costs or create revenue opportunities.';
+    return `${youMay} be eligible for incentives or subsidies related to biomethane production or use in this jurisdiction, which could offset compliance costs or create revenue opportunities.`;
 
   const howAffects = reg.how_affects || '';
   if (howAffects && howAffects !== 'N/A' && howAffects !== 'nan' && howAffects.length > 20)
     return howAffects;
   return 'Review this regulation with your compliance team to understand specific obligations and timelines that apply to your operations.';
 }
-
 // ─── COUNTRY LIST ────────────────────────────────────────────
 function getCountryList() {
   return Object.keys(countryToISO).sort();
@@ -657,8 +674,8 @@ function showResultsTab(tab) {
   if (tab === 'exposure')   content.innerHTML = renderPollutantExposureTab();
 }
 
-function regCard(reg) {
-  const soWhat = getSoWhat(reg);
+function regCard(reg, context) {
+  const soWhat = getSoWhat(reg, context || 'domestic');
   const url = safeUrl(reg.website);
   const regJson = JSON.stringify(reg).replace(/'/g, "\\'").replace(/"/g, '&quot;');
   return `<div class="result-card" onclick="showInductiveRegDetail('${regJson}')">
@@ -681,7 +698,7 @@ function renderDomesticTab() {
     <p class="results-empty-hint">This may mean your country's data isn't fully tagged yet for your sector, or regulations haven't been added. Check back as data is added on an ongoing basis.</p>
   </div>`;
   return `<h3 class="results-section-heading">Regulations in <strong>${esc(wizardProfile.hq)}</strong> relevant to your sector — ${regs.length} found</div>
-    ${regs.map(r => regCard(r)).join('')}`;
+    ${regs.map(r => regCard(r, 'domestic')).join('')}`;
 }
 
 function renderImportsTab() {
@@ -695,7 +712,7 @@ function renderImportsTab() {
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
   return `<h3 class="results-section-heading">Regulations in countries you source from — ${sources.length} found</h3>
-    ${sources.map(r => regCard(r)).join('')}`;
+    ${sources.map(r => regCard(r, 'import')).join('')}`;
 }
 
 function renderExportsTab() {
@@ -709,7 +726,7 @@ function renderExportsTab() {
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
   return `<h3 class="results-section-heading">Regulations in countries you export to — ${exportRegs.length} found</h3>
-    ${exportRegs.map(r => regCard(r)).join('')}`;
+    ${exportRegs.map(r => regCard(r, 'export')).join('')}`;
 }
 
 function renderIncentivesTab() {
