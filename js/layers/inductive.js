@@ -614,13 +614,16 @@ function renderResults() {
   const sectorInfo = SECTOR_DATA[wizardProfile.sector] || {};
 
   document.getElementById('resultsProfileSummary').innerHTML = `
-    <div class="profile-summary-grid">
-      <div class="profile-pill"><strong>HQ:</strong> ${esc(wizardProfile.hq)}</div>
-      <div class="profile-pill"><strong>Sources:</strong> ${sourceNames.length > 0 ? sourceNames.map(esc).join(', ') : 'None'}</div>
-      <div class="profile-pill"><strong>Exports:</strong> ${exportNames.length > 0 ? exportNames.map(esc).join(', ') : 'None'}</div>
-      <div class="profile-pill"> <strong>Sector:</strong> ${esc(wizardProfile.sector)}${wizardProfile.subsector ? ' › ' + esc(wizardProfile.subsector) : ''}</div>
-      <div class="profile-pill"><strong>Revenue:</strong> ${esc(getRevenueLabel(wizardProfile.revenue))}</div>
-      ${sectorInfo.pollutants ? `<div class="profile-pill">️<strong>Pollutant focus:</strong> ${sectorInfo.pollutants.join(', ')}</div>` : ''}
+    <div class="profile-summary-row">
+      <div class="profile-summary-grid">
+        <div class="profile-pill"><strong>HQ:</strong> ${esc(wizardProfile.hq)}</div>
+        <div class="profile-pill"><strong>Sources:</strong> ${sourceNames.length > 0 ? sourceNames.map(esc).join(', ') : 'None'}</div>
+        <div class="profile-pill"><strong>Exports:</strong> ${exportNames.length > 0 ? exportNames.map(esc).join(', ') : 'None'}</div>
+        <div class="profile-pill"><strong>Sector:</strong> ${esc(wizardProfile.sector)}${wizardProfile.subsector ? ' › ' + esc(wizardProfile.subsector) : ''}</div>
+        <div class="profile-pill"><strong>Revenue:</strong> ${esc(getRevenueLabel(wizardProfile.revenue))}</div>
+        ${sectorInfo.pollutants ? `<div class="profile-pill"><strong>Pollutant focus:</strong> ${sectorInfo.pollutants.join(', ')}</div>` : ''}
+      </div>
+      <button class="assumptions-btn" onclick="showAssumptions()">Assumptions</button>
     </div>`;
 
   const r = inductiveResults;
@@ -1062,4 +1065,13 @@ function renderPollutantExposureTab() {
       Actual emissions vary by company size, geography, and operations.
       This chart is indicative only and should not be used for regulatory reporting.
     </div>`;
+}
+
+// ─── ASSUMPTIONS PAGE ────────────────────────────────────────
+function showAssumptions() {
+    document.getElementById('assumptionsOverlay').style.display = 'flex';
+}
+
+function closeAssumptions() {
+    document.getElementById('assumptionsOverlay').style.display = 'none';
 }
