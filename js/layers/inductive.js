@@ -294,6 +294,10 @@ function renderWizardStep(step) {
   prevBtn.style.visibility = step === 1 ? 'hidden' : 'visible';
   nextBtn.textContent = step === 5 ? 'See My Results →' : 'Next →';
 
+  // Progressive background — darker at step 1, lighter by step 5
+  const overlay = document.getElementById('inductiveOverlay');
+  overlay.className = 'inductive-overlay wizard-step-bg-' + step;
+
   for (let i = 1; i <= 5; i++) {
     const node = document.getElementById('stepDot' + i);
     if (node) {
