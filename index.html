@@ -165,7 +165,7 @@
                     </label>
                     <label class="industry-filter-option">
                         <input type="checkbox" id="filterAgriculture" checked />
-                        <span>Agriculture</span>
+                        <span>Food & Agriculture</span>
                     </label>
                     <label class="industry-filter-option">
                         <input type="checkbox" id="filterTradingTax" checked />
@@ -282,12 +282,12 @@
     </div>
 </div>
 
-<!-- Assumptions overlay -->
-<div id="assumptionsOverlay" class="inductive-overlay" style="display:none;">
+<!-- About overlay -->
+<div id="aboutOverlay" class="inductive-overlay" style="display:none;">
     <div class="inductive-results">
         <div class="inductive-header">
-            <button class="inductive-back-btn" onclick="closeAssumptions()">← Back to Results</button>
-            <h2 class="inductive-title">Assumptions</h2>
+            <button class="inductive-back-btn" onclick="closeInfoOverlay('aboutOverlay')">← Back to Results</button>
+            <h2 class="inductive-title">About</h2>
             <button class="inductive-back-btn" onclick="enterMapMode()">Map</button>
         </div>
         <div class="results-content">
@@ -297,6 +297,24 @@
             <h3 class="results-section-heading">Data sources</h3>
             <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 24px;">Regulations data is sourced and maintained by GBB Strategy. The database currently covers 908 regulations across 212 countries and jurisdictions. Biomethane program data and VCM project data are maintained separately and updated on an ongoing basis. Pollutant exposure profiles are derived from the EPA Inventory of U.S. Greenhouse Gas Emissions and Sinks 1990–2022 (EPA 430-R-24-004, April 2024) and the EPA Greenhouse Gas Reporting Program (GHGRP) 2023.</p>
 
+            <h3 class="results-section-heading">Limitations</h3>
+            <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 24px;">This tool is intended as a high-level directional guide only. It does not constitute legal or compliance advice. Regulations change frequently and coverage varies by country. Industry flag tagging is ongoing — results for some sectors and countries may be incomplete. Always verify applicability with a qualified compliance professional.</p>
+
+            <h3 class="results-section-heading">Privacy</h3>
+            <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 24px;">No data entered into this tool is stored or transmitted to GBB Strategy. All processing occurs locally in your browser.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Methodology overlay -->
+<div id="methodologyOverlay" class="inductive-overlay" style="display:none;">
+    <div class="inductive-results">
+        <div class="inductive-header">
+            <button class="inductive-back-btn" onclick="closeInfoOverlay('methodologyOverlay')">← Back to Results</button>
+            <h2 class="inductive-title">Methodology</h2>
+            <button class="inductive-back-btn" onclick="enterMapMode()">Map</button>
+        </div>
+        <div class="results-content">
             <h3 class="results-section-heading">Matching methodology</h3>
             <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 8px;">Regulations are matched to your profile using the following logic:</p>
             <ul style="font-size:14px;line-height:1.9;color:#374151;margin:0 0 24px;padding-left:24px;">
@@ -306,12 +324,20 @@
                 <li><strong>Incentives:</strong> Biomethane and renewable gas incentive programs in any of your countries.</li>
                 <li><strong>VCM Projects:</strong> Voluntary carbon market projects in your countries whose project type is associated with your sector's pollutants.</li>
             </ul>
+        </div>
+    </div>
+</div>
 
-            <h3 class="results-section-heading">Limitations</h3>
-            <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 24px;">This tool is intended as a high-level directional guide only. It does not constitute legal or compliance advice. Regulations change frequently and coverage varies by country. Industry flag tagging is ongoing — results for some sectors and countries may be incomplete. Always verify applicability with a qualified compliance professional.</p>
-
-            <h3 class="results-section-heading">Privacy</h3>
-            <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 24px;">No data entered into this tool is stored or transmitted to GBB Strategy. All processing occurs locally in your browser.</p>
+<!-- Assumptions overlay -->
+<div id="assumptionsOverlay" class="inductive-overlay" style="display:none;">
+    <div class="inductive-results">
+        <div class="inductive-header">
+            <button class="inductive-back-btn" onclick="closeInfoOverlay('assumptionsOverlay')">← Back to Results</button>
+            <h2 class="inductive-title">Assumptions</h2>
+            <button class="inductive-back-btn" onclick="enterMapMode()">Map</button>
+        </div>
+        <div class="results-content">
+            <p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 24px;">Assumptions content coming soon.</p>
         </div>
     </div>
 </div>

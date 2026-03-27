@@ -12,13 +12,13 @@ let activeResultsTab = 'domestic';
 const SECTOR_DATA = {
   'Food & Beverage': {
     pollutants: ['HFC', 'Methane'],
-    industryFlags: ['solid_waste', 'agriculture'],
+    industryFlags: ['solid_waste', 'food_agriculture'],
     subcategories: ['Food Processing & Manufacturing', 'Beverage Production', 'Food Distribution & Cold Chain', 'Restaurants & Food Service'],
     naics: '311-312'
   },
   'Agriculture & Livestock': {
     pollutants: ['Methane', 'N2O'],
-    industryFlags: ['agriculture'],
+    industryFlags: ['food_agriculture'],
     subcategories: ['Crop Farming', 'Livestock & Dairy', 'Aquaculture & Fishing'],
     naics: '111-112'
   },
@@ -153,6 +153,12 @@ function getSoWhat(reg, context) {
 
   if (name.includes('cap-and-trade') || name.includes('cap and trade') || name.includes('emission trading') || name.includes(' ets ') || name.includes('allowances'))
     return `${youMay} need to purchase and surrender emission allowances under this scheme, creating compliance costs and ongoing monitoring and reporting obligations.`;
+
+  // Treaty participation — Kigali Amendment and Global Methane Pledge
+  if (name.includes('global methane pledge') || name.includes('methane pledge'))
+    return 'This country has committed to the Global Methane Pledge, signalling likely future regulation of methane emissions. While not yet a direct compliance obligation, it indicates regulatory tightening ahead in this jurisdiction.';
+  if (name.includes('kigali amendment participant'))
+    return 'This country is a signatory to the Kigali Amendment to the Montreal Protocol, committing to phase down HFCs. Expect tightening regulations on refrigerants and cooling equipment in this jurisdiction.';
 
   if (pollutants.includes('hfc') && (name.includes('kigali') || name.includes('hfc') || name.includes('refrigerant') || name.includes('f-gas')))
     return `${your} refrigeration and cooling equipment may require upgrades or phase-downs. Certified technician handling, import restrictions, and regular leak inspections may apply.`;
@@ -591,36 +597,89 @@ function matchIncentives() {
   return results;
 }
 
+// Keywords that indicate a VCM project covers a given pollutant
+function projectMatchesPollutant(pType, pollutant) {
+  const pLow = pollutant.toLowerCase();
+  return pType.includes(pLow) ||
+    (pLow === 'methane' && /landfill|livestock|coal|oil|gas|waste|manure|rice|biogas|fugitive/.test(pType)) ||
+    (pLow === 'hfc' && /refriger|hvac|cooling|f-gas|fluorin/.test(pType)) ||
+    (pLow === 'nox' && /transport|vehicle|fuel|combustion/.test(pType)) ||
+    (pLow === 'black carbon' && /cookstove|combustion|fuel|diesel/.test(pType)) ||
+    (pLow === 'n2o' && /nitrous|fertilizer|agriculture|soil|manure/.test(pType));
+}
+
+// Keywords mapping sector NAICS/activity to VCM project type
+const SECTOR_VCM_KEYWORDS = {
+  'Food & Beverage':          /food|beverage|dairy|livestock|agriculture|waste|landfill/,
+  'Agriculture & Livestock':  /agriculture|livestock|dairy|enteric|manure|rice|soil|cropland/,
+  'Manufacturing & Industrial': /industrial|manufacturing|cement|steel|chemical|fuel switching/,
+  'Logistics & Transportation': /transport|vehicle|fleet|aviation|shipping|fuel/,
+  'Real Estate & Construction': /building|construction|efficiency|hvac|fuel switching/,
+  'Retail & Consumer Goods':  /retail|waste|landfill|refriger|cold chain/,
+  'Waste Management & Recycling': /landfill|waste|wastewater|composting|biogas|biomethane/,
+  'Energy & Utilities':       /energy|fuel switching|renewable|solar|wind|coal|oil|gas|power/,
+  'Chemical & Pharmaceutical': /chemical|industrial|refriger|f-gas|fluorin/,
+  'Technology & Data Centers': /efficiency|renewable|energy|building/,
+  'Financial Services & Insurance': /efficiency|renewable|building|offset/,
+  'Healthcare':               /efficiency|waste|renewable|building/,
+  'Hospitality & Tourism':    /efficiency|waste|renewable|building|food/,
+  'Mining & Extractives':     /coal|mining|oil|gas|fugitive|methane/,
+  'Media, Entertainment & Events': /transport|waste|renewable|efficiency/,
+  'Education & Research':     /efficiency|renewable|building|waste/,
+  'Telecommunications':       /efficiency|renewable|building/,
+  'Government & Public Sector': /waste|transport|renewable|efficiency|landfill/,
+  'Professional Services':    /efficiency|renewable|building/,
+  'Other':                    /.*/,
+};
+
 function matchVCM(sectorPollutants) {
-  if (!vcmDataLoaded || !vcmData) return [];
-  const allCountries = [
+  if (!vcmDataLoaded || !vcmData) return { country: [], emissions: [], sector: [] };
+
+  const userCountries = new Set([
     wizardProfile.hq,
     ...wizardProfile.sources.filter(c => c !== '__none__'),
     ...wizardProfile.exports.filter(c => c !== '__none__')
-  ].filter(Boolean);
-  const seen = new Set();
-  const results = [];
-  allCountries.forEach(country => {
-    const projects = getVCMProjects(country);
-    if (!projects) return;
+  ].filter(Boolean));
+
+  const sectorKeywords = SECTOR_VCM_KEYWORDS[wizardProfile.sector] || SECTOR_VCM_KEYWORDS['Other'];
+  const seenCountry = new Set();
+  const seenEmissions = new Set();
+  const seenSector = new Set();
+  const countryMatches = [], emissionsMatches = [], sectorMatches = [];
+
+  // Scan all VCM data for matches
+  Object.entries(vcmData).forEach(([vcmCountry, projects]) => {
     projects.forEach(p => {
       const pType = ((p.project_type || '') + ' ' + (p.project_type_filter || '')).toLowerCase();
-      const pollutantMatch = sectorPollutants.some(pol => {
-        const pLow = pol.toLowerCase();
-        return pType.includes(pLow) ||
-          (pLow === 'methane' && /landfill|livestock|coal|oil|gas|waste|manure|rice|biogas/.test(pType)) ||
-          (pLow === 'hfc' && /refriger|hvac|cooling/.test(pType)) ||
-          (pLow === 'nox' && /transport|vehicle|fuel/.test(pType)) ||
-          (pLow === 'black carbon' && /cookstove|combustion|fuel/.test(pType)) ||
-          (pLow === 'n2o' && /nitrous|fertilizer|agriculture/.test(pType));
-      });
-      if (pollutantMatch) {
-        const key = (p.id || p.name || '') + '|' + country;
-        if (!seen.has(key)) { seen.add(key); results.push({ ...p, country }); }
+      const proj = { ...p, country: vcmCountry };
+      const key = (p.id || p.name || '') + '|' + vcmCountry;
+
+      // Section 1: Country match — project is in one of the user's countries
+      if (userCountries.has(vcmCountry) && !seenCountry.has(key)) {
+        seenCountry.add(key);
+        countryMatches.push(proj);
+      }
+
+      // Section 2: Emissions match — project covers same molecules as user's sector
+      const emissionsMatch = sectorPollutants.some(pol => projectMatchesPollutant(pType, pol));
+      if (emissionsMatch && !seenEmissions.has(key)) {
+        seenEmissions.add(key);
+        emissionsMatches.push(proj);
+      }
+
+      // Section 3: Sector match — project type aligns with user's industry activity
+      if (sectorKeywords.test(pType) && !seenSector.has(key)) {
+        seenSector.add(key);
+        sectorMatches.push(proj);
       }
     });
   });
-  return results.slice(0, 25);
+
+  return {
+    country:   countryMatches.slice(0, 30),
+    emissions: emissionsMatches.slice(0, 30),
+    sector:    sectorMatches.slice(0, 30)
+  };
 }
 
 // ─── RESULTS RENDERING ────────────────────────────────────────
@@ -640,7 +699,11 @@ function renderResults() {
         <div class="profile-pill"><strong>Revenue:</strong> ${esc(getRevenueLabel(wizardProfile.revenue))}</div>
         ${sectorInfo.pollutants ? `<div class="profile-pill"><strong>Pollutant focus:</strong> ${sectorInfo.pollutants.join(', ')}</div>` : ''}
       </div>
-      <button class="assumptions-btn" onclick="showAssumptions()">Assumptions</button>
+      <div class="info-btns">
+        <button class="assumptions-btn" onclick="showInfoOverlay('aboutOverlay')">About</button>
+        <button class="assumptions-btn" onclick="showInfoOverlay('methodologyOverlay')">Methodology</button>
+        <button class="assumptions-btn" onclick="showInfoOverlay('assumptionsOverlay')">Assumptions</button>
+      </div>
     </div>`;
 
   const r = inductiveResults;
@@ -648,7 +711,11 @@ function renderResults() {
   const importCount = r.importExport.sources.length;
   const exportCount = r.importExport.exports.length;
   const incCount = r.incentives.length;
-  const vcmCount = r.vcm.length;
+  const vcmCount = new Set([
+    ...r.vcm.country.map(p => p.id || p.name),
+    ...r.vcm.emissions.map(p => p.id || p.name),
+    ...r.vcm.sector.map(p => p.id || p.name)
+  ]).size;
 
   document.getElementById('resultsTabDomestic').innerHTML  = `Domestic <span class="results-tab-badge">${domCount}</span>`;
   document.getElementById('resultsTabImports').innerHTML   = `Imports <span class="results-tab-badge">${importCount}</span>`;
@@ -680,15 +747,31 @@ function regCard(reg, context) {
   const regJson = JSON.stringify(reg).replace(/'/g, "\\'").replace(/"/g, '&quot;');
   return `<div class="result-card" onclick="showInductiveRegDetail('${regJson}')">
     <div class="result-card-header">
-      <span class="result-card-country">${esc(reg.country || '')}</span>
       <span class="result-card-jurisdiction">${esc(reg.jurisdiction || '')}</span>
     </div>
     <div class="result-card-name">${esc(reg.name)}</div>
     <div class="result-card-pollutants">${esc(reg.pollutants)}</div>
-    <div class="result-card-sowhat"> ${esc(soWhat)}</div>
-    ${url ? `<div class="result-card-link"> <a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View source</a></div>` : ''}
+    <div class="result-card-sowhat">${esc(soWhat)}</div>
+    ${url ? `<div class="result-card-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View source</a></div>` : ''}
     <div class="result-card-cta">View full details →</div>
   </div>`;
+}
+
+// Group an array of regulations by country and render with country headers
+function renderGroupedByCountry(regs, context) {
+  // Build ordered map: country -> [regs]
+  const groups = [];
+  const seen = {};
+  regs.forEach(r => {
+    const country = r.country || 'Unknown';
+    if (!seen[country]) { seen[country] = []; groups.push({ country, regs: seen[country] }); }
+    seen[country].push(r);
+  });
+  return groups.map(g => `
+    <div class="country-group">
+      <h4 class="country-group-heading">${esc(g.country)} <span class="country-group-count">${g.regs.length} regulation${g.regs.length === 1 ? '' : 's'}</span></h4>
+      ${g.regs.map(r => regCard(r, context)).join('')}
+    </div>`).join('');
 }
 
 function renderDomesticTab() {
@@ -697,8 +780,8 @@ function renderDomesticTab() {
     <p>No matching domestic regulations found for <strong>${esc(wizardProfile.hq)}</strong> in your sector.</p>
     <p class="results-empty-hint">This may mean your country's data isn't fully tagged yet for your sector, or regulations haven't been added. Check back as data is added on an ongoing basis.</p>
   </div>`;
-  return `<h3 class="results-section-heading">Regulations in <strong>${esc(wizardProfile.hq)}</strong> relevant to your sector — ${regs.length} found</div>
-    ${regs.map(r => regCard(r, 'domestic')).join('')}`;
+  return `<h3 class="results-section-heading">Regulations in <strong>${esc(wizardProfile.hq)}</strong> relevant to your sector — ${regs.length} found</h3>` +
+    renderGroupedByCountry(regs, 'domestic');
 }
 
 function renderImportsTab() {
@@ -711,8 +794,8 @@ function renderImportsTab() {
       <p>No matching regulations found in your sourcing countries for your sector.</p>
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
-  return `<h3 class="results-section-heading">Regulations in countries you source from — ${sources.length} found</h3>
-    ${sources.map(r => regCard(r, 'import')).join('')}`;
+  return `<h3 class="results-section-heading">Regulations in countries you source from — ${sources.length} found</h3>` +
+    renderGroupedByCountry(sources, 'import');
 }
 
 function renderExportsTab() {
@@ -725,8 +808,8 @@ function renderExportsTab() {
       <p>No matching regulations found in your export countries for your sector.</p>
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
-  return `<h3 class="results-section-heading">Regulations in countries you export to — ${exportRegs.length} found</h3>
-    ${exportRegs.map(r => regCard(r, 'export')).join('')}`;
+  return `<h3 class="results-section-heading">Regulations in countries you export to — ${exportRegs.length} found</h3>` +
+    renderGroupedByCountry(exportRegs, 'export');
 }
 
 function renderIncentivesTab() {
@@ -754,29 +837,80 @@ function renderIncentivesTab() {
     }).join('')}`;
 }
 
+function vcmCard(p) {
+  const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  return `<div class="result-card" onclick="showInductiveVCMDetail('${pJson}')">
+    <div class="result-card-header">
+      <span class="result-card-country">${esc(p.country || '')}</span>
+      <span class="result-card-jurisdiction">${esc(p.registry || '')}</span>
+    </div>
+    <div class="result-card-name">${esc(p.name || 'Unnamed project')}</div>
+    ${p.project_type ? `<div class="result-card-pollutants">Type: ${esc(p.project_type)}</div>` : ''}
+    ${p.status ? `<div class="result-card-pollutants">Status: ${esc(p.status)}</div>` : ''}
+    ${p.annual_reductions ? `<div class="result-card-pollutants">Est. Annual Reductions: ${esc(p.annual_reductions)} tCO₂e</div>` : ''}
+    <div class="result-card-sowhat">This project may offer carbon credits relevant to your profile. Verify eligibility and availability with the registry.</div>
+    <div class="result-card-cta">View full details →</div>
+  </div>`;
+}
+
 function renderVCMTab() {
-  const projects = inductiveResults.vcm;
-  if (projects.length === 0) return `<div class="results-empty">
-    <p>No matching VCM projects found in your countries for your sector's pollutant profile.</p>
+  const { country, emissions, sector } = inductiveResults.vcm;
+  const totalUnique = new Set([
+    ...country.map(p => p.id || p.name),
+    ...emissions.map(p => p.id || p.name),
+    ...sector.map(p => p.id || p.name)
+  ]).size;
+
+  if (totalUnique === 0) return `<div class="results-empty">
+    <p>No matching VCM projects found for your profile.</p>
     <p class="results-empty-hint">Additional VCM projects are being added on an ongoing basis.</p>
   </div>`;
-  return `<h3 class="results-section-heading">VCM projects in your countries matching your pollutant profile — ${projects.length} found</div>
-    ${projects.map(p => {
-      const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      return `<div class="result-card" onclick="showInductiveVCMDetail('${pJson}')">
-        <div class="result-card-header">
-          <span class="result-card-country">${esc(p.country || '')}</span>
-          <span class="result-card-jurisdiction">${esc(p.registry || '')}</span>
-        </div>
-        <div class="result-card-name">${esc(p.name || 'Unnamed project')}</div>
-        ${p.project_type ? `<div class="result-card-pollutants">Type: ${esc(p.project_type)}</div>` : ''}
-        ${p.status ? `<div class="result-card-pollutants">Status: ${esc(p.status)}</div>` : ''}
-        ${p.annual_reductions ? `<div class="result-card-pollutants">Est. Annual Reductions: ${esc(p.annual_reductions)} tCO₂e</div>` : ''}
-        <div class="result-card-sowhat"> This project may offer carbon credits aligned with your emissions profile. Verify eligibility and availability with the registry.</div>
-        <div class="result-card-cta">View full details →</div>
+
+  let html = '';
+
+  // Section 1: Country match
+  html += `<div class="vcm-section">
+    <h3 class="results-section-heading">Projects in your countries <span class="country-group-count">${country.length} found</span></h3>`;
+  if (country.length === 0) {
+    html += `<p class="vcm-empty-section">No VCM projects found in your headquarters, import, or export countries.</p>`;
+  } else {
+    // Group by country
+    const groups = {};
+    country.forEach(p => { if (!groups[p.country]) groups[p.country] = []; groups[p.country].push(p); });
+    Object.entries(groups).forEach(([c, ps]) => {
+      html += `<div class="country-group">
+        <h4 class="country-group-heading">${esc(c)} <span class="country-group-count">${ps.length} project${ps.length === 1 ? '' : 's'}</span></h4>
+        ${ps.map(p => vcmCard(p)).join('')}
       </div>`;
-    }).join('')}`;
+    });
+  }
+  html += `</div>`;
+
+  // Section 2: Emissions / molecule match
+  html += `<div class="vcm-section">
+    <h3 class="results-section-heading">Projects covering the same molecules <span class="country-group-count">${emissions.length} found</span></h3>
+    <p class="vcm-section-desc">VCM projects whose emissions type aligns with your sector’s primary super pollutants: <strong>${(SECTOR_DATA[wizardProfile.sector] || {pollutants:[]}).pollutants.join(', ')}</strong></p>`;
+  if (emissions.length === 0) {
+    html += `<p class="vcm-empty-section">No projects found matching your sector’s pollutant profile.</p>`;
+  } else {
+    html += emissions.map(p => vcmCard(p)).join('');
+  }
+  html += `</div>`;
+
+  // Section 3: Sector / activity match
+  html += `<div class="vcm-section">
+    <h3 class="results-section-heading">Projects with similar industry coverage <span class="country-group-count">${sector.length} found</span></h3>
+    <p class="vcm-section-desc">VCM projects whose activity type aligns with your sector: <strong>${esc(wizardProfile.sector)}</strong></p>`;
+  if (sector.length === 0) {
+    html += `<p class="vcm-empty-section">No projects found matching your industry sector.</p>`;
+  } else {
+    html += sector.map(p => vcmCard(p)).join('');
+  }
+  html += `</div>`;
+
+  return html;
 }
+
 
 // ─── DETAIL MODALS ────────────────────────────────────────────
 function showInductiveRegDetail(regJson) {
@@ -784,7 +918,7 @@ function showInductiveRegDetail(regJson) {
   const url = safeUrl(reg.website);
   const industries = [];
   if (reg.hvac) industries.push('HVAC');
-  if (reg.agriculture) industries.push('Agriculture');
+  if (reg.food_agriculture) industries.push('Food & Agriculture');
   if (reg.trading_tax_systems) industries.push('Trading & Tax Systems');
   if (reg.fossil_fuel_production) industries.push('Fossil Fuel Production');
   if (reg.solid_waste) industries.push('Solid Waste');
@@ -1084,11 +1218,11 @@ function renderPollutantExposureTab() {
     </div>`;
 }
 
-// ─── ASSUMPTIONS PAGE ────────────────────────────────────────
-function showAssumptions() {
-    document.getElementById('assumptionsOverlay').style.display = 'flex';
+// ─── INFO OVERLAYS (About, Methodology, Assumptions) ─────────
+function showInfoOverlay(id) {
+    document.getElementById(id).style.display = 'flex';
 }
 
-function closeAssumptions() {
-    document.getElementById('assumptionsOverlay').style.display = 'none';
+function closeInfoOverlay(id) {
+    document.getElementById(id).style.display = 'none';
 }

@@ -1355,14 +1355,14 @@ updateVCMFilterAvailability(currentVCMProjects);
                     return false;
                 }
                 
-                const hasIndustryTag = reg.hvac || reg.agriculture || reg.trading_tax_systems || reg.fossil_fuel_production || reg.solid_waste || reg.transportation;
+                const hasIndustryTag = reg.hvac || reg.food_agriculture || reg.trading_tax_systems || reg.fossil_fuel_production || reg.solid_waste || reg.transportation;
                 
                 if (!hasIndustryTag) {
                     return showRemaining;
                 }
                 
                 if (!showHVAC && reg.hvac) return false;
-                if (!showAgriculture && reg.agriculture) return false;
+                if (!showAgriculture && reg.food_agriculture) return false;
                 if (!showTradingTax && reg.trading_tax_systems) return false;
                 if (!showFossilFuel && reg.fossil_fuel_production) return false;
                 if (!showSolidWaste && reg.solid_waste) return false;
@@ -1419,13 +1419,13 @@ if (!data) return;
                 industryFilters.style.display = 'flex';
                 
                 const hasHVAC = data.regulations.some(reg => reg.hvac);
-                const hasAgriculture = data.regulations.some(reg => reg.agriculture);
+                const hasAgriculture = data.regulations.some(reg => reg.food_agriculture);
                 const hasTradingTax = data.regulations.some(reg => reg.trading_tax_systems);
                 const hasFossilFuel = data.regulations.some(reg => reg.fossil_fuel_production);
                 const hasSolidWaste = data.regulations.some(reg => reg.solid_waste);
                 const hasTransportation = data.regulations.some(reg => reg.transportation);
                 const hasRemaining = data.regulations.some(reg => 
-                    !reg.hvac && !reg.agriculture && !reg.trading_tax_systems && !reg.fossil_fuel_production && !reg.solid_waste && !reg.transportation &&
+                    !reg.hvac && !reg.food_agriculture && !reg.trading_tax_systems && !reg.fossil_fuel_production && !reg.solid_waste && !reg.transportation &&
                     !COMMITMENT_REGULATION_NAMES.some(n => reg.name.toLowerCase().includes(n))
                 );
                 
@@ -1553,7 +1553,7 @@ content += `<li style="margin: 5px 0;">${esc(reg.name)} (${esc(reg.jurisdiction)
     
     const industries = [];
     if (reg.hvac) industries.push('HVAC');
-    if (reg.agriculture) industries.push('Agriculture');
+    if (reg.food_agriculture) industries.push('Food & Agriculture');
     if (reg.trading_tax_systems) industries.push('Trading & Tax Systems');
     if (reg.fossil_fuel_production) industries.push('Fossil Fuel Production');
     if (reg.solid_waste) industries.push('Solid Waste');
@@ -1801,7 +1801,7 @@ content += `<li style="margin: 5px 0;">${esc(reg.name)} (${esc(reg.jurisdiction)
 
             const industries = [];
             if (reg.hvac) industries.push('HVAC');
-            if (reg.agriculture) industries.push('Agriculture');
+            if (reg.food_agriculture) industries.push('Food & Agriculture');
             if (reg.trading_tax_systems) industries.push('Trading & Tax Systems');
             if (reg.fossil_fuel_production) industries.push('Fossil Fuel Production');
             if (reg.solid_waste) industries.push('Solid Waste');

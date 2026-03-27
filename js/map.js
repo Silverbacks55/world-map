@@ -115,7 +115,7 @@
                     website: (row['Confirmed URL'] && row['Confirmed URL'].toUpperCase() === 'Y') ? (row['Website / source'] || '') : '',
                     in_english: row['In English'] || 'N',
                     hvac: row['HVAC'] && row['HVAC'].toUpperCase() === 'Y',
-                    agriculture: row['Agriculture'] && row['Agriculture'].toUpperCase() === 'Y',
+                    food_agriculture: (row['Food & Agriculture'] || row['Agriculture']) && (row['Food & Agriculture'] || row['Agriculture']).toUpperCase() === 'Y',
                     trading_tax_systems: row['Trading & Tax Systems'] && row['Trading & Tax Systems'].toUpperCase() === 'Y',
                     fossil_fuel_production: row['Fossil Fuel Production'] && row['Fossil Fuel Production'].toUpperCase() === 'Y',
                     solid_waste: row['Solid Waste'] && row['Solid Waste'].toUpperCase() === 'Y',
