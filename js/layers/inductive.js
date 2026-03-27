@@ -4,7 +4,7 @@
 
 // ─── STATE ───────────────────────────────────────────────────
 let wizardStep = 1;
-let wizardProfile = { hq: '', sources: [], exports: [], sector: '', subsector: '', revenue: '' };
+let wizardProfile = { hq: '', sources: [], exports: [], sector: '', subsector: '', revenue: '', usStates: [] };
 let inductiveResults = null;
 let activeResultsTab = 'domestic';
 
@@ -217,7 +217,7 @@ function enterCorporateMode() {
   document.getElementById('resultsOverlay').style.display = 'none';
   // Start fresh wizard
   wizardStep = 1;
-  wizardProfile = { hq: '', sources: [], exports: [], sector: '', subsector: '', revenue: '' };
+  wizardProfile = { hq: '', sources: [], exports: [], sector: '', subsector: '', revenue: '', usStates: [] };
   document.getElementById('inductiveOverlay').style.display = 'flex';
   renderWizardStep(1);
 }
@@ -249,6 +249,18 @@ function backToWizard() {
 function wizardNext() {
   if (!validateStep(wizardStep)) return;
   saveStepData(wizardStep);
+  // If step 1 and US selected, go to state selector (step 1.5)
+  if (wizardStep === 1 && wizardProfile.hq === 'United States') {
+    wizardStep = 1.5;
+    renderWizardStep(1.5);
+    return;
+  }
+  // After state selector, jump to step 2 (not 2.5)
+  if (wizardStep === 1.5) {
+    wizardStep = 2;
+    renderWizardStep(2);
+    return;
+  }
   if (wizardStep === 5) {
     runMatchingAndShowResults();
     return;
@@ -260,6 +272,18 @@ function wizardNext() {
 function wizardPrev() {
   if (wizardStep === 1) { showSplash(); return; }
   saveStepData(wizardStep);
+  // Going back from step 2 — if US was selected, return to state selector
+  if (wizardStep === 2 && wizardProfile.hq === 'United States') {
+    wizardStep = 1.5;
+    renderWizardStep(1.5);
+    return;
+  }
+  // Going back from state selector goes to step 1
+  if (wizardStep === 1.5) {
+    wizardStep = 1;
+    renderWizardStep(1);
+    return;
+  }
   wizardStep--;
   renderWizardStep(wizardStep);
 }
@@ -292,6 +316,13 @@ function saveStepData(step) {
   if (step === 1) {
     const sel = document.getElementById('wHQCountry');
     if (sel) wizardProfile.hq = sel.value;
+    // Clear states if country changed away from US
+    if (wizardProfile.hq !== 'United States') wizardProfile.usStates = [];
+  }
+  if (step === 1.5) {
+    // Save selected US states
+    const checked = document.querySelectorAll('#wUSStatesList input:checked');
+    wizardProfile.usStates = Array.from(checked).map(cb => cb.value);
   }
   if (step === 4) {
     const sel = document.getElementById('wSector');
@@ -312,14 +343,15 @@ function renderWizardStep(step) {
   const prevBtn = document.getElementById('wizardPrevBtn');
   const nextBtn = document.getElementById('wizardNextBtn');
 
-  stepNum.textContent = step;
+  stepNum.textContent = wizardStep === 1.5 ? '1' : step;
   prevBtn.textContent = '← Previous';
-  prevBtn.style.visibility = step === 1 ? 'hidden' : 'visible';
+  prevBtn.style.visibility = (step === 1 || step === 1.5) ? 'hidden' : 'visible';
   nextBtn.textContent = step === 5 ? 'See My Results →' : 'Next →';
 
   // Progressive background — darker at step 1, lighter by step 5
   const overlay = document.getElementById('inductiveOverlay');
-  overlay.className = 'inductive-overlay wizard-step-bg-' + step;
+  const bgStep = step === 1.5 ? 1 : Math.min(Math.max(Math.round(step), 1), 5);
+  overlay.className = 'inductive-overlay wizard-step-bg-' + bgStep;
 
   for (let i = 1; i <= 5; i++) {
     const node = document.getElementById('stepDot' + i);
@@ -402,7 +434,40 @@ function renderWizardStep(step) {
     </div>`;
   }
 
-  container.innerHTML = html;
+  if (step === 1.5) {
+    const US_STATES = ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','District of Columbia','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'];
+    const fedOnly = wizardProfile.usStates.includes('__federal__');
+    const selectedStates = wizardProfile.usStates.filter(s => s !== '__federal__');
+    html = `<div class="wizard-step">
+      <h3 class="wizard-step-title">Which US states do you operate in?</h3>
+      <p class="wizard-step-hint">We'll include federal regulations plus only the state-level regulations relevant to your selected states. Select up to 10 states, or choose federal only.</p>
+      <label class="wizard-none-option${fedOnly ? ' selected' : ''}" style="margin-bottom:14px;">
+        <input type="checkbox" id="wFederalOnly" ${fedOnly ? 'checked' : ''}
+          onchange="toggleUSFederalOnly(this.checked)">
+        Federal regulations only
+      </label>
+      <div id="wUSStatesWrapper"${fedOnly ? ' style="opacity:0.4;pointer-events:none;"' : ''}>
+        <div class="wizard-country-search-row">
+          <input type="text" class="wizard-country-search" placeholder="Search states..."
+            oninput="filterCountryList('wUSStatesList', this.value)">
+          <span class="wizard-selected-count" id="wUSStatesCount">${selectedStates.length} / 10 selected</span>
+        </div>
+        <div class="wizard-country-list" id="wUSStatesList">
+          ${US_STATES.map(s => {
+            const checked = selectedStates.includes(s);
+            const disabled = !checked && selectedStates.length >= 10;
+            return `<label class="wizard-country-item${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}">
+              <input type="checkbox" value="${esc(s)}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}
+                onchange="toggleUSState('${esc(s)}', this.checked)">
+              ${esc(s)}
+            </label>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('wizardStepContainer').innerHTML = html;
 }
 
 function renderCountryCheckStep(id, title, hint, selectedList, profileKey) {
@@ -475,8 +540,36 @@ function toggleNoneOption(key, id, checked) {
   }
 }
 
+function toggleUSFederalOnly(checked) {
+  wizardProfile.usStates = checked ? ['__federal__'] : [];
+  const wrapper = document.getElementById('wUSStatesWrapper');
+  const label = document.getElementById('wFederalOnly').closest('label');
+  if (wrapper) { wrapper.style.opacity = checked ? '0.4' : ''; wrapper.style.pointerEvents = checked ? 'none' : ''; }
+  if (label) label.className = 'wizard-none-option' + (checked ? ' selected' : '');
+  document.getElementById('wUSStatesCount').textContent = '0 / 10 selected';
+}
+
+function toggleUSState(state, checked) {
+  const arr = wizardProfile.usStates;
+  if (checked) {
+    if (arr.filter(s => s !== '__federal__').length < 10) arr.push(state);
+  } else {
+    const idx = arr.indexOf(state);
+    if (idx > -1) arr.splice(idx, 1);
+  }
+  const selectedReal = arr.filter(s => s !== '__federal__');
+  document.getElementById('wUSStatesCount').textContent = selectedReal.length + ' / 10 selected';
+  document.querySelectorAll('#wUSStatesList .wizard-country-item').forEach(label => {
+    const cb = label.querySelector('input');
+    if (!cb) return;
+    const isChecked = arr.includes(cb.value);
+    const isDisabled = !isChecked && selectedReal.length >= 10;
+    cb.disabled = isDisabled;
+    label.className = 'wizard-country-item' + (isChecked ? ' checked' : '') + (isDisabled ? ' disabled' : '');
+  });
+}
+
 function filterCountryList(listId, query) {
-  const list = document.getElementById(listId);
   if (!list) return;
   const q = query.toLowerCase();
   list.querySelectorAll('.wizard-country-item').forEach(label => {
@@ -553,10 +646,34 @@ function findCountryRegs(countryName) {
 
 function matchDomestic(sectorPollutants, sectorFlags) {
   if (!wizardProfile.hq) return [];
-  return findCountryRegs(wizardProfile.hq)
+  let regs = findCountryRegs(wizardProfile.hq)
     .filter(r => regulationMatchesSector(r, sectorPollutants))
     .filter(r => r.still_in_effect !== 'N')
     .map(r => ({ ...r, country: wizardProfile.hq }));
+
+  // If US and user specified states, filter to federal + selected states only
+  if (wizardProfile.hq === 'United States' && wizardProfile.usStates.length > 0) {
+    const fedOnly = wizardProfile.usStates.includes('__federal__');
+    const selectedStates = wizardProfile.usStates.filter(s => s !== '__federal__');
+    regs = regs.filter(r => {
+      const j = (r.jurisdiction || '').toLowerCase();
+      const isFederal = j.includes('national') || j.includes('federal') || j === '';
+      if (isFederal) return true;
+      if (fedOnly) return false;
+      return selectedStates.some(s => s.toLowerCase() === j.toLowerCase());
+    });
+  }
+  // If US, always sort federal first then states alphabetically by jurisdiction
+  if (wizardProfile.hq === 'United States') {
+    regs.sort((a, b) => {
+      const aFed = /national|federal/i.test(a.jurisdiction || '') || !a.jurisdiction;
+      const bFed = /national|federal/i.test(b.jurisdiction || '') || !b.jurisdiction;
+      if (aFed && !bFed) return -1;
+      if (!aFed && bFed) return 1;
+      return (a.jurisdiction || '').localeCompare(b.jurisdiction || '');
+    });
+  }
+  return regs;
 }
 
 function matchImportExport(sectorPollutants, sectorFlags) {
@@ -692,18 +809,14 @@ function renderResults() {
   document.getElementById('resultsProfileSummary').innerHTML = `
     <div class="profile-summary-row">
       <div class="profile-summary-grid">
-        <div class="profile-pill"><strong>HQ:</strong> ${esc(wizardProfile.hq)}</div>
+        <div class="profile-pill"><strong>HQ:</strong> ${esc(wizardProfile.hq)}${wizardProfile.hq === 'United States' && wizardProfile.usStates.length > 0 ? ' (' + (wizardProfile.usStates.includes('__federal__') ? 'Federal only' : wizardProfile.usStates.join(', ')) + ')' : ''}</div>
         <div class="profile-pill"><strong>Sources:</strong> ${sourceNames.length > 0 ? sourceNames.map(esc).join(', ') : 'None'}</div>
         <div class="profile-pill"><strong>Exports:</strong> ${exportNames.length > 0 ? exportNames.map(esc).join(', ') : 'None'}</div>
         <div class="profile-pill"><strong>Sector:</strong> ${esc(wizardProfile.sector)}${wizardProfile.subsector ? ' › ' + esc(wizardProfile.subsector) : ''}</div>
         <div class="profile-pill"><strong>Revenue:</strong> ${esc(getRevenueLabel(wizardProfile.revenue))}</div>
         ${sectorInfo.pollutants ? `<div class="profile-pill"><strong>Pollutant focus:</strong> ${sectorInfo.pollutants.join(', ')}</div>` : ''}
       </div>
-      <div class="info-btns">
-        <button class="assumptions-btn" onclick="showInfoOverlay('aboutOverlay')">About</button>
-        <button class="assumptions-btn" onclick="showInfoOverlay('methodologyOverlay')">Methodology</button>
-        <button class="assumptions-btn" onclick="showInfoOverlay('assumptionsOverlay')">Assumptions</button>
-      </div>
+      <button class="assumptions-btn" onclick="showInfoOverlay('aboutOverlay')">About</button>
     </div>`;
 
   const r = inductiveResults;
