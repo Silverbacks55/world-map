@@ -447,11 +447,7 @@ function renderWizardStep(step) {
         Federal regulations only
       </label>
       <div id="wUSStatesWrapper"${fedOnly ? ' style="opacity:0.4;pointer-events:none;"' : ''}>
-        <div class="wizard-country-search-row">
-          <input type="text" class="wizard-country-search" placeholder="Search states..."
-            oninput="filterCountryList('wUSStatesList', this.value)">
-          <span class="wizard-selected-count" id="wUSStatesCount">${selectedStates.length} / 10 selected</span>
-        </div>
+        <div style="text-align:right;margin-bottom:8px;"><span class="wizard-selected-count" id="wUSStatesCount">${selectedStates.length} / 10 selected</span></div>
         <div class="wizard-country-list" id="wUSStatesList">
           ${US_STATES.map(s => {
             const checked = selectedStates.includes(s);
@@ -483,11 +479,7 @@ function renderCountryCheckStep(id, title, hint, selectedList, profileKey) {
       We do not ${profileKey === 'sources' ? 'import' : 'export'}
     </label>
     <div class="wizard-country-search-wrapper" id="${id}Wrapper"${noneSelected ? ' style="opacity:0.4;pointer-events:none;"' : ''}>
-      <div class="wizard-country-search-row">
-        <input type="text" class="wizard-country-search" placeholder=" Search countries..."
-          oninput="filterCountryList('${id}List', this.value)">
-        <span class="wizard-selected-count" id="${id}Count">${selectedReal.length} / 5 selected</span>
-      </div>
+      <div style="text-align:right;margin-bottom:8px;"><span class="wizard-selected-count" id="${id}Count">${selectedReal.length} / 5 selected</span></div>
       <div class="wizard-country-list" id="${id}List">
         ${countries.map(c => {
           const checked = selectedList.includes(c);
@@ -801,7 +793,7 @@ function matchVCM(sectorPollutants) {
 
 // ─── RESULTS RENDERING ────────────────────────────────────────
 function renderResults() {
-  activeResultsTab = 'domestic';
+  activeResultsTab = 'exposure';
   const sourceNames = wizardProfile.sources.filter(c => c !== '__none__');
   const exportNames = wizardProfile.exports.filter(c => c !== '__none__');
   const sectorInfo = SECTOR_DATA[wizardProfile.sector] || {};
@@ -836,7 +828,7 @@ function renderResults() {
   document.getElementById('resultsTabIncentives').innerHTML = `Incentives &amp; Opportunities <span class="results-tab-badge">${incCount}</span>`;
   document.getElementById('resultsTabVCM').innerHTML     = `VCM Projects <span class="results-tab-badge">${vcmCount}</span>`;
 
-  showResultsTab('domestic');
+  showResultsTab('exposure');
 }
 
 function showResultsTab(tab) {
@@ -871,8 +863,7 @@ function regCard(reg, context) {
 }
 
 // Group an array of regulations by country and render with country headers
-function renderGroupedByCountry(regs, context) {
-  // Build ordered map: country -> [regs]
+function renderGroupedByCountry(regs, context, collapsible = false) {
   const groups = [];
   const seen = {};
   regs.forEach(r => {
@@ -880,11 +871,34 @@ function renderGroupedByCountry(regs, context) {
     if (!seen[country]) { seen[country] = []; groups.push({ country, regs: seen[country] }); }
     seen[country].push(r);
   });
-  return groups.map(g => `
-    <div class="country-group">
-      <h4 class="country-group-heading">${esc(g.country)} <span class="country-group-count">${g.regs.length} regulation${g.regs.length === 1 ? '' : 's'}</span></h4>
+  return groups.map((g, idx) => {
+    const id = 'cg-' + context + '-' + idx;
+    const label = g.regs.length + ' regulation' + (g.regs.length === 1 ? '' : 's');
+    if (collapsible) {
+      return `<div class="country-group">
+        <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
+          <span class="collapse-arrow" id="${id}-arrow">▼</span>
+          ${esc(g.country)} <span class="country-group-count">${label}</span>
+        </h4>
+        <div class="country-group-body" id="${id}">
+          ${g.regs.map(r => regCard(r, context)).join('')}
+        </div>
+      </div>`;
+    }
+    return `<div class="country-group">
+      <h4 class="country-group-heading">${esc(g.country)} <span class="country-group-count">${label}</span></h4>
       ${g.regs.map(r => regCard(r, context)).join('')}
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function toggleCountryGroup(id) {
+  const body = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
 function renderDomesticTab() {
@@ -908,7 +922,7 @@ function renderImportsTab() {
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
   return `<h3 class="results-section-heading">Regulations in countries you source from — ${sources.length} found</h3>` +
-    renderGroupedByCountry(sources, 'import');
+    renderGroupedByCountry(sources, 'import', true);
 }
 
 function renderExportsTab() {
@@ -922,7 +936,23 @@ function renderExportsTab() {
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
   return `<h3 class="results-section-heading">Regulations in countries you export to — ${exportRegs.length} found</h3>` +
-    renderGroupedByCountry(exportRegs, 'export');
+    renderGroupedByCountry(exportRegs, 'export', true);
+}
+
+function incentiveCard(p) {
+  const url = safeUrl(p.source_url);
+  const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  return `<div class="result-card" onclick="showInductiveBiomethaneDetail('${pJson}')">
+    <div class="result-card-header">
+      <span class="result-card-jurisdiction">${esc(p.jurisdiction_name || '')}</span>
+    </div>
+    <div class="result-card-name">${esc(p.name || 'Unnamed program')}</div>
+    ${p.category ? `<div class="result-card-pollutants">Category: ${esc(p.category)}</div>` : ''}
+    ${p.instrument_type ? `<div class="result-card-pollutants">Instrument: ${esc(p.instrument_type)}</div>` : ''}
+    <div class="result-card-sowhat">Your company may be eligible for this incentive. Review eligibility criteria with your compliance team.</div>
+    ${url ? `<div class="result-card-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View program</a></div>` : ''}
+    <div class="result-card-cta">View full details →</div>
+  </div>`;
 }
 
 function renderIncentivesTab() {
@@ -931,30 +961,61 @@ function renderIncentivesTab() {
     <p>No biomethane or renewable gas incentive programs found in your countries.</p>
     <p class="results-empty-hint">Additional incentive types and countries are being added on an ongoing basis.</p>
   </div>`;
-  return `<h3 class="results-section-heading">Biomethane &amp; renewable gas incentive programs in your countries — ${programs.length} found</div>
-    ${programs.map(p => {
-      const url = safeUrl(p.source_url);
-      const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      return `<div class="result-card" onclick="showInductiveBiomethaneDetail('${pJson}')">
-        <div class="result-card-header">
-          <span class="result-card-country">${esc(p.country || '')}</span>
-          <span class="result-card-jurisdiction">${esc(p.jurisdiction_name || '')}</span>
+
+  // Group by country
+  const groups = [];
+  const seen = {};
+  programs.forEach(p => {
+    const country = p.country || 'Unknown';
+    if (!seen[country]) { seen[country] = []; groups.push({ country, programs: seen[country] }); }
+    seen[country].push(p);
+  });
+
+  const html = `<h3 class="results-section-heading">Biomethane &amp; renewable gas incentive programs in your countries — ${programs.length} found</h3>` +
+    groups.map((g, idx) => {
+      const id = 'inc-' + idx;
+      const label = g.programs.length + ' program' + (g.programs.length === 1 ? '' : 's');
+      return `<div class="country-group">
+        <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
+          <span class="collapse-arrow" id="${id}-arrow">▼</span>
+          ${esc(g.country)} <span class="country-group-count">${label}</span>
+        </h4>
+        <div class="country-group-body" id="${id}">
+          ${g.programs.map(p => incentiveCard(p)).join('')}
         </div>
-        <div class="result-card-name">${esc(p.name || 'Unnamed program')}</div>
-        ${p.category ? `<div class="result-card-pollutants">Category: ${esc(p.category)}</div>` : ''}
-        ${p.instrument_type ? `<div class="result-card-pollutants">Instrument: ${esc(p.instrument_type)}</div>` : ''}
-        <div class="result-card-sowhat"> Your company may be eligible for this incentive. Review eligibility criteria with your compliance team.</div>
-        ${url ? `<div class="result-card-link"> <a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View program</a></div>` : ''}
-        <div class="result-card-cta">View full details →</div>
       </div>`;
-    }).join('')}`;
+    }).join('');
+  return html;
+}
+
+
+function vcmGroupedByCountry(projects, prefix) {
+  const groups = [];
+  const seen = {};
+  projects.forEach(p => {
+    const c = p.country || 'Unknown';
+    if (!seen[c]) { seen[c] = []; groups.push({ country: c, projects: seen[c] }); }
+    seen[c].push(p);
+  });
+  return groups.map((g, idx) => {
+    const id = prefix + '-' + idx;
+    const label = g.projects.length + ' project' + (g.projects.length === 1 ? '' : 's');
+    return `<div class="country-group">
+      <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
+        <span class="collapse-arrow" id="${id}-arrow">▼</span>
+        ${esc(g.country)} <span class="country-group-count">${label}</span>
+      </h4>
+      <div class="country-group-body" id="${id}">
+        ${g.projects.map(p => vcmCard(p)).join('')}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function vcmCard(p) {
   const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
   return `<div class="result-card" onclick="showInductiveVCMDetail('${pJson}')">
     <div class="result-card-header">
-      <span class="result-card-country">${esc(p.country || '')}</span>
       <span class="result-card-jurisdiction">${esc(p.registry || '')}</span>
     </div>
     <div class="result-card-name">${esc(p.name || 'Unnamed project')}</div>
@@ -981,26 +1042,25 @@ function renderVCMTab() {
 
   let html = '';
 
+  // Section nav links
+  html += `<div class="vcm-nav">
+    <a class="vcm-nav-link" href="#vcm-country">Projects in your countries <span class="vcm-nav-count">${country.length}</span></a>
+    <a class="vcm-nav-link" href="#vcm-emissions">Same molecules <span class="vcm-nav-count">${emissions.length}</span></a>
+    <a class="vcm-nav-link" href="#vcm-sector">Similar industry <span class="vcm-nav-count">${sector.length}</span></a>
+  </div>`;
+
   // Section 1: Country match
-  html += `<div class="vcm-section">
+  html += `<div class="vcm-section" id="vcm-country">
     <h3 class="results-section-heading">Projects in your countries <span class="country-group-count">${country.length} found</span></h3>`;
   if (country.length === 0) {
     html += `<p class="vcm-empty-section">No VCM projects found in your headquarters, import, or export countries.</p>`;
   } else {
-    // Group by country
-    const groups = {};
-    country.forEach(p => { if (!groups[p.country]) groups[p.country] = []; groups[p.country].push(p); });
-    Object.entries(groups).forEach(([c, ps]) => {
-      html += `<div class="country-group">
-        <h4 class="country-group-heading">${esc(c)} <span class="country-group-count">${ps.length} project${ps.length === 1 ? '' : 's'}</span></h4>
-        ${ps.map(p => vcmCard(p)).join('')}
-      </div>`;
-    });
+    html += vcmGroupedByCountry(country, 'vcm-c');
   }
   html += `</div>`;
 
   // Section 2: Emissions / molecule match
-  html += `<div class="vcm-section">
+  html += `<div class="vcm-section" id="vcm-emissions">
     <h3 class="results-section-heading">Projects covering the same molecules <span class="country-group-count">${emissions.length} found</span></h3>
     <p class="vcm-section-desc">VCM projects whose emissions type aligns with your sector’s primary super pollutants: <strong>${(SECTOR_DATA[wizardProfile.sector] || {pollutants:[]}).pollutants.join(', ')}</strong></p>`;
   if (emissions.length === 0) {
@@ -1011,13 +1071,13 @@ function renderVCMTab() {
   html += `</div>`;
 
   // Section 3: Sector / activity match
-  html += `<div class="vcm-section">
+  html += `<div class="vcm-section" id="vcm-sector">
     <h3 class="results-section-heading">Projects with similar industry coverage <span class="country-group-count">${sector.length} found</span></h3>
     <p class="vcm-section-desc">VCM projects whose activity type aligns with your sector: <strong>${esc(wizardProfile.sector)}</strong></p>`;
   if (sector.length === 0) {
     html += `<p class="vcm-empty-section">No projects found matching your industry sector.</p>`;
   } else {
-    html += sector.map(p => vcmCard(p)).join('');
+    html += vcmGroupedByCountry(sector, 'vcm-s');
   }
   html += `</div>`;
 
