@@ -17,12 +17,14 @@ function safeUrl(url) {
 
         function getCountryFlag(countryName) {
             const cleanName = countryName.replace(' (Federal)', '');
-            if (usStateToCode[cleanName]) {
-                return `https://flagcdn.com/w80/${usStateToCode[cleanName]}.png`;
-            }
+            // Check country ISO first — prevents US state names (e.g. Georgia) overriding countries
             const isoCode = countryToISO[cleanName];
             if (isoCode) {
                 return `https://flagcdn.com/w80/${isoCode}.png`;
+            }
+            // Fall back to US state codes
+            if (usStateToCode[cleanName]) {
+                return `https://flagcdn.com/w80/${usStateToCode[cleanName]}.png`;
             }
             return null;
         }

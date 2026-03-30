@@ -984,17 +984,18 @@ function matchVCM(sectorPollutants) {
         countryMatches.push(proj);
       }
 
-      // Section 2: Emissions match — project covers same molecules as user's sector
-      const emissionsMatch = sectorPollutants.some(pol => projectMatchesPollutant(pType, pol));
-      if (emissionsMatch && !seenEmissions.has(key)) {
+      // Section 2: Emissions match — tag with which molecule(s) matched
+      const matchedPollutants = sectorPollutants.filter(pol => projectMatchesPollutant(pType, pol));
+      if (matchedPollutants.length > 0 && !seenEmissions.has(key)) {
         seenEmissions.add(key);
-        emissionsMatches.push(proj);
+        emissionsMatches.push({ ...proj, _matchedMolecule: matchedPollutants[0] });
       }
 
-      // Section 3: Sector match — project type aligns with user's industry activity
+      // Section 3: Sector match — tag with project_type_filter as the grouping category
       if (sectorKeywords.test(pType) && !seenSector.has(key)) {
         seenSector.add(key);
-        sectorMatches.push(proj);
+        const category = p.project_type_filter || p.project_type || 'Other';
+        sectorMatches.push({ ...proj, _sectorCategory: category });
       }
     });
   });
@@ -1064,16 +1065,17 @@ function showResultsTab(tab) {
 function regCard(reg, context) {
   const soWhat = getSoWhat(reg, context || 'domestic');
   const url = safeUrl(reg.website);
+  const treaty = isTreatyEntry(reg);
   const regJson = JSON.stringify(reg).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-  return `<div class="result-card" onclick="showInductiveRegDetail('${regJson}')">
-    <div class="result-card-header">
-      <span class="result-card-jurisdiction">${esc(reg.jurisdiction || '')}</span>
+  return `<div class="reg-row${treaty ? ' reg-row-treaty' : ''}" onclick="showInductiveRegDetail('${regJson}')">
+    <div class="reg-row-header">
+      <span class="reg-row-name">${esc(reg.name)}</span>
+      <span class="reg-row-jurisdiction">${esc(reg.jurisdiction || '')}</span>
     </div>
-    <div class="result-card-name">${esc(reg.name)}</div>
-    <div class="result-card-pollutants">${esc(reg.pollutants)}</div>
-    <div class="result-card-sowhat">${esc(soWhat)}</div>
-    ${url ? `<div class="result-card-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View source</a></div>` : ''}
-    <div class="result-card-cta">View full details →</div>
+    <div class="reg-row-pollutants">${esc(reg.pollutants)}</div>
+    <div class="reg-row-sowhat">${esc(soWhat)}</div>
+    ${url ? `<div class="reg-row-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View source</a></div>` : ''}
+    <div class="reg-row-cta">View full details →</div>
   </div>`;
 }
 
@@ -1092,7 +1094,6 @@ function renderGroupedByCountry(regs, context, collapsible = false) {
     seen[country].push(r);
   });
   return groups.map((g, idx) => {
-    // Sort: treaty entries last within each country
     const sorted = [...g.regs].sort((a, b) => {
       const aTreaty = isTreatyEntry(a) ? 1 : 0;
       const bTreaty = isTreatyEntry(b) ? 1 : 0;
@@ -1102,20 +1103,23 @@ function renderGroupedByCountry(regs, context, collapsible = false) {
     const label = sorted.length + ' regulation' + (sorted.length === 1 ? '' : 's');
     const flagUrl = getCountryFlag(g.country);
     const flagImg = flagUrl ? `<img src="${flagUrl}" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">` : '';
-    if (collapsible) {
-      return `<div class="country-group">
-        <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
-          <span class="collapse-arrow" id="${id}-arrow">▼</span>
-          ${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span>
-        </h4>
-        <div class="country-group-body" id="${id}">
-          ${sorted.map(r => regCard(r, context)).join('')}
+    const header = `<div class="country-card-header${collapsible ? ' collapsible-heading' : ''}" ${collapsible ? `onclick="toggleCountryGroup('${id}')"` : ''}>
+        <div style="display:flex;align-items:center;">
+          ${collapsible ? `<span class="collapse-arrow" id="${id}-arrow">▼</span>` : ''}
+          ${flagImg}<span class="country-card-name">${esc(g.country)}</span>
+          <span class="country-group-count" style="margin-left:8px;">${label}</span>
         </div>
       </div>`;
+    const rows = sorted.map(r => regCard(r, context)).join('');
+    if (collapsible) {
+      return `<div class="country-card">
+        ${header}
+        <div class="country-card-body" id="${id}">${rows}</div>
+      </div>`;
     }
-    return `<div class="country-group">
-      <h4 class="country-group-heading">${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span></h4>
-      ${sorted.map(r => regCard(r, context)).join('')}
+    return `<div class="country-card">
+      ${header}
+      <div class="country-card-body">${rows}</div>
     </div>`;
   }).join('');
 }
@@ -1170,16 +1174,16 @@ function renderExportsTab() {
 function incentiveCard(p) {
   const url = safeUrl(p.source_url);
   const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-  return `<div class="result-card" onclick="showInductiveBiomethaneDetail('${pJson}')">
-    <div class="result-card-header">
-      <span class="result-card-jurisdiction">${esc(p.jurisdiction_name || '')}</span>
+  return `<div class="reg-row" onclick="showInductiveBiomethaneDetail('${pJson}')">
+    <div class="reg-row-header">
+      <span class="reg-row-name">${esc(p.name || 'Unnamed program')}</span>
+      <span class="reg-row-jurisdiction">${esc(p.jurisdiction_name || '')}</span>
     </div>
-    <div class="result-card-name">${esc(p.name || 'Unnamed program')}</div>
-    ${p.category ? `<div class="result-card-pollutants">Category: ${esc(p.category)}</div>` : ''}
-    ${p.instrument_type ? `<div class="result-card-pollutants">Instrument: ${esc(p.instrument_type)}</div>` : ''}
-    <div class="result-card-sowhat">Your company may be eligible for this incentive. Review eligibility criteria with your compliance team.</div>
-    ${url ? `<div class="result-card-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View program</a></div>` : ''}
-    <div class="result-card-cta">View full details →</div>
+    ${p.category ? `<div class="reg-row-pollutants">Category: ${esc(p.category)}</div>` : ''}
+    ${p.instrument_type ? `<div class="reg-row-pollutants">Instrument: ${esc(p.instrument_type)}</div>` : ''}
+    <div class="reg-row-sowhat">Your company may be eligible for this incentive. Review eligibility criteria with your compliance team.</div>
+    ${url ? `<div class="reg-row-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View program</a></div>` : ''}
+    <div class="reg-row-cta">View full details →</div>
   </div>`;
 }
 
@@ -1205,12 +1209,15 @@ function renderIncentivesTab() {
       const label = g.programs.length + ' program' + (g.programs.length === 1 ? '' : 's');
       const flagUrl = getCountryFlag(g.country);
       const flagImg = flagUrl ? `<img src="${flagUrl}" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">` : '';
-      return `<div class="country-group">
-        <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
-          <span class="collapse-arrow" id="${id}-arrow">▼</span>
-          ${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span>
-        </h4>
-        <div class="country-group-body" id="${id}">
+      return `<div class="country-card">
+        <div class="country-card-header collapsible-heading" onclick="toggleCountryGroup('${id}')">
+          <div style="display:flex;align-items:center;">
+            <span class="collapse-arrow" id="${id}-arrow">▼</span>
+            ${flagImg}<span class="country-card-name">${esc(g.country)}</span>
+            <span class="country-group-count" style="margin-left:8px;">${label}</span>
+          </div>
+        </div>
+        <div class="country-card-body" id="${id}">
           ${g.programs.map(p => incentiveCard(p)).join('')}
         </div>
       </div>`;
@@ -1218,6 +1225,32 @@ function renderIncentivesTab() {
   return html;
 }
 
+
+function vcmGroupedByField(projects, prefix, field, labelType) {
+  const groups = [];
+  const seen = {};
+  projects.forEach(p => {
+    const key = p[field] || 'Other';
+    if (!seen[key]) { seen[key] = []; groups.push({ label: key, projects: seen[key] }); }
+    seen[key].push(p);
+  });
+  return groups.map((g, idx) => {
+    const id = prefix + '-' + idx;
+    const count = g.projects.length + ' project' + (g.projects.length === 1 ? '' : 's');
+    return `<div class="country-card">
+      <div class="country-card-header collapsible-heading" onclick="toggleCountryGroup('${id}')">
+        <div style="display:flex;align-items:center;">
+          <span class="collapse-arrow" id="${id}-arrow">▼</span>
+          <span class="country-card-name">${esc(g.label)}</span>
+          <span class="country-group-count" style="margin-left:8px;">${count}</span>
+        </div>
+      </div>
+      <div class="country-card-body" id="${id}">
+        ${g.projects.map(p => vcmCard(p)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
 
 function vcmGroupedByCountry(projects, prefix) {
   const groups = [];
@@ -1232,12 +1265,15 @@ function vcmGroupedByCountry(projects, prefix) {
     const label = g.projects.length + ' project' + (g.projects.length === 1 ? '' : 's');
     const flagUrl = getCountryFlag(g.country);
     const flagImg = flagUrl ? `<img src="${flagUrl}" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">` : '';
-    return `<div class="country-group">
-      <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
-        <span class="collapse-arrow" id="${id}-arrow">▼</span>
-        ${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span>
-      </h4>
-      <div class="country-group-body" id="${id}">
+    return `<div class="country-card">
+      <div class="country-card-header collapsible-heading" onclick="toggleCountryGroup('${id}')">
+        <div style="display:flex;align-items:center;">
+          <span class="collapse-arrow" id="${id}-arrow">▼</span>
+          ${flagImg}<span class="country-card-name">${esc(g.country)}</span>
+          <span class="country-group-count" style="margin-left:8px;">${label}</span>
+        </div>
+      </div>
+      <div class="country-card-body" id="${id}">
         ${g.projects.map(p => vcmCard(p)).join('')}
       </div>
     </div>`;
@@ -1246,16 +1282,16 @@ function vcmGroupedByCountry(projects, prefix) {
 
 function vcmCard(p) {
   const pJson = JSON.stringify(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-  return `<div class="result-card" onclick="showInductiveVCMDetail('${pJson}')">
-    <div class="result-card-header">
-      <span class="result-card-jurisdiction">${esc(p.registry || '')}</span>
+  return `<div class="reg-row" onclick="showInductiveVCMDetail('${pJson}')">
+    <div class="reg-row-header">
+      <span class="reg-row-name">${esc(p.name || 'Unnamed project')}</span>
+      <span class="reg-row-jurisdiction">${esc(p.registry || '')}</span>
     </div>
-    <div class="result-card-name">${esc(p.name || 'Unnamed project')}</div>
-    ${p.project_type ? `<div class="result-card-pollutants">Type: ${esc(p.project_type)}</div>` : ''}
-    ${p.status ? `<div class="result-card-pollutants">Status: ${esc(p.status)}</div>` : ''}
-    ${p.annual_reductions ? `<div class="result-card-pollutants">Est. Annual Reductions: ${esc(p.annual_reductions)} tCO₂e</div>` : ''}
-    <div class="result-card-sowhat">This project may offer carbon credits relevant to your profile. Verify eligibility and availability with the registry.</div>
-    <div class="result-card-cta">View full details →</div>
+    ${p.project_type ? `<div class="reg-row-pollutants">Type: ${esc(p.project_type)}</div>` : ''}
+    ${p.status ? `<div class="reg-row-pollutants">Status: ${esc(p.status)}</div>` : ''}
+    ${p.annual_reductions ? `<div class="reg-row-pollutants">Est. Annual Reductions: ${esc(p.annual_reductions)} tCO₂e</div>` : ''}
+    <div class="reg-row-sowhat">This project may offer carbon credits relevant to your profile. Verify eligibility and availability with the registry.</div>
+    <div class="reg-row-cta">View full details →</div>
   </div>`;
 }
 
@@ -1561,8 +1597,8 @@ function renderPollutantExposureTab() {
   }
 
   // Draw SVG pie chart
-  const size = 200;
-  const cx = size / 2, cy = size / 2, r = 85;
+  const size = 300;
+  const cx = size / 2, cy = size / 2, r = 127;
   let startAngle = -Math.PI / 2;
   let slices = '';
   let total = profile.reduce((sum, d) => sum + d.pct, 0);

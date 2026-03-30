@@ -1770,27 +1770,90 @@ transform: translate(-50%, -50%) !important;
 .assumptions-btn:hover { background: #1e3d0f; color: white; }
 
 /* Country grouping in results tabs */
-.country-group {
-    margin-bottom: 28px;
-}
-.country-group-heading {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 1.15em;
-    font-weight: 400;
-    color: #1e3d0f;
-    margin: 0 0 10px 0;
-    padding: 8px 0 8px 0;
-    border-bottom: 2px solid #1e3d0f;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-}
 .country-group-count {
     font-family: Arial, sans-serif;
     font-size: 12px;
     font-weight: 600;
     color: #6b7280;
 }
+
+/* Country card — one card per country, rows per regulation */
+.country-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+.country-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 16px;
+    background: #f0f7ed;
+    border-bottom: 1px solid #e0e0e0;
+}
+.country-card-header.collapsible-heading { cursor: pointer; user-select: none; }
+.country-card-header.collapsible-heading:hover { background: #e4f2df; }
+.country-card-name {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 15px;
+    font-weight: 400;
+    color: #1e3d0f;
+}
+.country-card-body { }
+
+/* Regulation row inside country card */
+.reg-row {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.reg-row:last-child { border-bottom: none; }
+.reg-row:hover { background: #fafffe; }
+.reg-row-treaty { opacity: 0.65; }
+.reg-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 3px;
+}
+.reg-row-name {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px;
+    color: #111827;
+    line-height: 1.4;
+    flex: 1;
+}
+.reg-row-jurisdiction {
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.reg-row-pollutants { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+.reg-row-sowhat {
+    font-size: 12px;
+    color: #374151;
+    background: #fffbeb;
+    border-left: 3px solid #d4a017;
+    padding: 5px 9px;
+    border-radius: 0 3px 3px 0;
+    margin-bottom: 5px;
+    line-height: 1.5;
+}
+.reg-row-link { font-size: 11px; margin-bottom: 3px; }
+.reg-row-link a { color: #1e3d0f; }
+.reg-row-cta {
+    font-size: 11px;
+    color: #1e3d0f;
+    text-align: right;
+    font-weight: 600;
+    opacity: 0.6;
+}
+.reg-row:hover .reg-row-cta { opacity: 1; }
 
 /* Three info buttons row */
 .info-btns {
