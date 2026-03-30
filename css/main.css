@@ -1459,9 +1459,10 @@ transform: translate(-50%, -50%) !important;
     padding: 48px 24px;
     text-align: center;
     color: #374151;
+    font-family: Georgia, 'Times New Roman', serif;
 }
-.results-empty p { margin: 0 0 10px; font-size: 1em; }
-.results-empty-hint { font-size: 0.85em; color: #9ca3af; font-style: italic; }
+.results-empty p { margin: 0 0 10px; font-size: 1em; font-family: Georgia, 'Times New Roman', serif; }
+.results-empty-hint { font-size: 0.85em; color: #9ca3af; font-style: italic; font-family: Georgia, 'Times New Roman', serif; }
 
 /* Result cards */
 .result-card {
@@ -1813,6 +1814,7 @@ transform: translate(-50%, -50%) !important;
     font-size: 13px;
     color: #9ca3af;
     font-style: italic;
+    font-family: Georgia, 'Times New Roman', serif;
     margin: 0 0 16px 0;
 }
 

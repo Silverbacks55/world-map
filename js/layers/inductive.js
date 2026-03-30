@@ -185,7 +185,220 @@ function getSoWhat(reg, context) {
 }
 // ─── COUNTRY LIST ────────────────────────────────────────────
 function getCountryList() {
-  return Object.keys(countryToISO).sort();
+  return [
+    'Afghanistan',
+    'Albania',
+    'Algeria',
+    'Andorra',
+    'Angola',
+    'Antigua and Barbuda',
+    'Argentina',
+    'Armenia',
+    'Australia',
+    'Austria',
+    'Azerbaijan',
+    'Bahamas',
+    'Bahrain',
+    'Bangladesh',
+    'Barbados',
+    'Belarus',
+    'Belgium',
+    'Belize',
+    'Benin',
+    'Bhutan',
+    'Bolivia',
+    'Bosnia and Herz.',
+    'Botswana',
+    'Brazil',
+    'Brunei Darussalam',
+    'Bulgaria',
+    'Burkina Faso',
+    'Burundi',
+    'Cabo Verde',
+    'Cambodia',
+    'Cameroon',
+    'Canada',
+    'Central African Rep.',
+    'Chad',
+    'Chile',
+    'China',
+    'Colombia',
+    'Comoros',
+    'Congo',
+    'Cook Islands',
+    'Costa Rica',
+    'Croatia',
+    'Cuba',
+    'Cyprus',
+    'Czechia',
+    'Côte d’Ivoire',
+    'Dem. Rep. Congo',
+    'Denmark',
+    'Djibouti',
+    'Dominica',
+    'Dominican Rep.',
+    'Ecuador',
+    'Egypt',
+    'El Salvador',
+    'Eq. Guinea',
+    'Eritrea',
+    'Estonia',
+    'Eswatini',
+    'Ethiopia',
+    'European Union',
+    'Federated States of Micronesia',
+    'Fiji',
+    'Finland',
+    'France',
+    'Gabon',
+    'Gambia',
+    'Georgia',
+    'Germany',
+    'Ghana',
+    'Greece',
+    'Greenland',
+    'Grenada',
+    'Guatemala',
+    'Guinea',
+    'Guinea-Bissau',
+    'Guyana',
+    'Haiti',
+    'Honduras',
+    'Hungary',
+    'Iceland',
+    'India',
+    'Indonesia',
+    'Iran',
+    'Iraq',
+    'Ireland',
+    'Israel',
+    'Italy',
+    'Jamaica',
+    'Japan',
+    'Jordan',
+    'Kazakhstan',
+    'Kenya',
+    'Kiribati',
+    'Kosovo',
+    'Kuwait',
+    'Kyrgyzstan',
+    'Laos',
+    'Latvia',
+    'Lebanon',
+    'Lesotho',
+    'Liberia',
+    'Libya',
+    'Liechtenstein',
+    'Lithuania',
+    'Luxembourg',
+    'Macedonia',
+    'Madagascar',
+    'Malawi',
+    'Malaysia',
+    'Maldives',
+    'Mali',
+    'Malta',
+    'Marshall Islands',
+    'Mauritania',
+    'Mauritius',
+    'Mexico',
+    'Micronesia',
+    'Moldova',
+    'Monaco',
+    'Mongolia',
+    'Montenegro',
+    'Morocco',
+    'Mozambique',
+    'Myanmar',
+    'Namibia',
+    'Nauru',
+    'Nepal',
+    'Netherlands',
+    'New Zealand',
+    'Nicaragua',
+    'Niger',
+    'Nigeria',
+    'Niue',
+    'North Korea',
+    'North Macedonia',
+    'Norway',
+    'Oman',
+    'Pakistan',
+    'Palau',
+    'Palestine',
+    'Panama',
+    'Papua New Guinea',
+    'Paraguay',
+    'Peru',
+    'Philippines',
+    'Poland',
+    'Portugal',
+    'Puerto Rico',
+    'Qatar',
+    'Romania',
+    'Russia',
+    'Rwanda',
+    'S. Sudan',
+    'Saint Kitts and Nevis',
+    'Saint Lucia',
+    'Saint Vincent and the Grenadines',
+    'Samoa',
+    'San Marino',
+    'Sao Tome and Principe',
+    'Saudi Arabia',
+    'Senegal',
+    'Serbia',
+    'Seychelles',
+    'Sierra Leone',
+    'Singapore',
+    'Slovakia',
+    'Slovenia',
+    'Solomon Islands',
+    'Somalia',
+    'Somaliland',
+    'South Africa',
+    'South Korea',
+    'South Sudan',
+    'Spain',
+    'Sri Lanka',
+    'St. Kitts and Nevis',
+    'St. Lucia',
+    'St. Vincent and the Grenadines',
+    'Sudan',
+    'Suriname',
+    'Sweden',
+    'Switzerland',
+    'Syria',
+    'Taiwan',
+    'Taiwan (Republic of China)',
+    'Tajikistan',
+    'Tanzania',
+    'Thailand',
+    'The Gambia',
+    'Timor-Leste',
+    'Togo',
+    'Tonga',
+    'Trinidad and Tobago',
+    'Tunisia',
+    'Turkey',
+    'Turkmenistan',
+    'Tuvalu',
+    'Uganda',
+    'Ukraine',
+    'United Arab Emirates',
+    'United Kingdom',
+    'United States',
+    'Uruguay',
+    'Uzbekistan',
+    'Vanuatu',
+    'Venezuela',
+    'Vietnam',
+    'W. Sahara',
+    'Yemen',
+    'Zambia',
+    'Zimbabwe',
+    'eSwatini'
+  ];
 }
 
 function getRevenueLabel(val) {
@@ -655,13 +868,15 @@ function matchDomestic(sectorPollutants, sectorFlags) {
       return selectedStates.some(s => s.toLowerCase() === j.toLowerCase());
     });
   }
-  // If US, always sort federal first then states alphabetically by jurisdiction
+  // If US, always sort federal first, then states alphabetically, treaties always last
   if (wizardProfile.hq === 'United States') {
     regs.sort((a, b) => {
-      const aFed = /national|federal/i.test(a.jurisdiction || '') || !a.jurisdiction;
-      const bFed = /national|federal/i.test(b.jurisdiction || '') || !b.jurisdiction;
-      if (aFed && !bFed) return -1;
-      if (!aFed && bFed) return 1;
+      const aTreaty = isTreatyEntry(a) ? 2 : 0;
+      const bTreaty = isTreatyEntry(b) ? 2 : 0;
+      const aFed = (!aTreaty && /national|federal/i.test(a.jurisdiction || '')) ? 0 : 1;
+      const bFed = (!bTreaty && /national|federal/i.test(b.jurisdiction || '')) ? 0 : 1;
+      if (aTreaty !== bTreaty) return aTreaty - bTreaty;
+      if (aFed !== bFed) return aFed - bFed;
       return (a.jurisdiction || '').localeCompare(b.jurisdiction || '');
     });
   }
@@ -806,7 +1021,7 @@ function renderResults() {
         <div class="profile-pill"><strong>Exports:</strong> ${exportNames.length > 0 ? exportNames.map(esc).join(', ') : 'None'}</div>
         <div class="profile-pill"><strong>Sector:</strong> ${esc(wizardProfile.sector)}${wizardProfile.subsector ? ' › ' + esc(wizardProfile.subsector) : ''}</div>
         <div class="profile-pill"><strong>Revenue:</strong> ${esc(getRevenueLabel(wizardProfile.revenue))}</div>
-        ${sectorInfo.pollutants ? `<div class="profile-pill"><strong>Pollutant focus:</strong> ${sectorInfo.pollutants.join(', ')}</div>` : ''}
+        
       </div>
       <button class="assumptions-btn" onclick="showInfoOverlay('aboutOverlay')">About</button>
     </div>`;
@@ -863,6 +1078,11 @@ function regCard(reg, context) {
 }
 
 // Group an array of regulations by country and render with country headers
+function isTreatyEntry(r) {
+  const name = (r.name || '').toLowerCase();
+  return name.includes('kigali amendment participant') || name.includes('global methane pledge') || name.includes('methane pledge');
+}
+
 function renderGroupedByCountry(regs, context, collapsible = false) {
   const groups = [];
   const seen = {};
@@ -872,22 +1092,30 @@ function renderGroupedByCountry(regs, context, collapsible = false) {
     seen[country].push(r);
   });
   return groups.map((g, idx) => {
+    // Sort: treaty entries last within each country
+    const sorted = [...g.regs].sort((a, b) => {
+      const aTreaty = isTreatyEntry(a) ? 1 : 0;
+      const bTreaty = isTreatyEntry(b) ? 1 : 0;
+      return aTreaty - bTreaty;
+    });
     const id = 'cg-' + context + '-' + idx;
-    const label = g.regs.length + ' regulation' + (g.regs.length === 1 ? '' : 's');
+    const label = sorted.length + ' regulation' + (sorted.length === 1 ? '' : 's');
+    const flagUrl = getCountryFlag(g.country);
+    const flagImg = flagUrl ? `<img src="${flagUrl}" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">` : '';
     if (collapsible) {
       return `<div class="country-group">
         <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
           <span class="collapse-arrow" id="${id}-arrow">▼</span>
-          ${esc(g.country)} <span class="country-group-count">${label}</span>
+          ${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span>
         </h4>
         <div class="country-group-body" id="${id}">
-          ${g.regs.map(r => regCard(r, context)).join('')}
+          ${sorted.map(r => regCard(r, context)).join('')}
         </div>
       </div>`;
     }
     return `<div class="country-group">
-      <h4 class="country-group-heading">${esc(g.country)} <span class="country-group-count">${label}</span></h4>
-      ${g.regs.map(r => regCard(r, context)).join('')}
+      <h4 class="country-group-heading">${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span></h4>
+      ${sorted.map(r => regCard(r, context)).join('')}
     </div>`;
   }).join('');
 }
@@ -975,10 +1203,12 @@ function renderIncentivesTab() {
     groups.map((g, idx) => {
       const id = 'inc-' + idx;
       const label = g.programs.length + ' program' + (g.programs.length === 1 ? '' : 's');
+      const flagUrl = getCountryFlag(g.country);
+      const flagImg = flagUrl ? `<img src="${flagUrl}" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">` : '';
       return `<div class="country-group">
         <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
           <span class="collapse-arrow" id="${id}-arrow">▼</span>
-          ${esc(g.country)} <span class="country-group-count">${label}</span>
+          ${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span>
         </h4>
         <div class="country-group-body" id="${id}">
           ${g.programs.map(p => incentiveCard(p)).join('')}
@@ -1000,10 +1230,12 @@ function vcmGroupedByCountry(projects, prefix) {
   return groups.map((g, idx) => {
     const id = prefix + '-' + idx;
     const label = g.projects.length + ' project' + (g.projects.length === 1 ? '' : 's');
+    const flagUrl = getCountryFlag(g.country);
+    const flagImg = flagUrl ? `<img src="${flagUrl}" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">` : '';
     return `<div class="country-group">
       <h4 class="country-group-heading collapsible-heading" onclick="toggleCountryGroup('${id}')">
         <span class="collapse-arrow" id="${id}-arrow">▼</span>
-        ${esc(g.country)} <span class="country-group-count">${label}</span>
+        ${flagImg}${esc(g.country)} <span class="country-group-count">${label}</span>
       </h4>
       <div class="country-group-body" id="${id}">
         ${g.projects.map(p => vcmCard(p)).join('')}
