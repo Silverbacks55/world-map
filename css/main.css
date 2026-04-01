@@ -1934,3 +1934,33 @@ transform: translate(-50%, -50%) !important;
     font-size: 11px;
 }
 .vcm-nav-link:hover .vcm-nav-count { background: rgba(255,255,255,0.3); }
+
+/* Impact grouping within country card */
+.impact-group {
+    border-bottom: 1px solid #f0f0f0;
+}
+.impact-group:last-child { border-bottom: none; }
+.impact-group-heading {
+    padding: 10px 16px 6px;
+    background: #fafffe;
+}
+.impact-group-label {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: #1e3d0f;
+    display: block;
+    margin-bottom: 3px;
+}
+.impact-group-text {
+    font-size: 12px;
+    color: #374151;
+    background: #fffbeb;
+    border-left: 3px solid #d4a017;
+    padding: 5px 9px;
+    border-radius: 0 3px 3px 0;
+    margin: 0;
+    line-height: 1.5;
+}
+.impact-group-regs { }
+.impact-group-regs .reg-row { padding-left: 24px; }

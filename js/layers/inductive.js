@@ -134,54 +134,65 @@ const SECTOR_DATA = {
 
 // ─── "SO WHAT" NARRATIVES ────────────────────────────────────
 function getSoWhat(reg, context) {
-  // context: 'domestic' | 'import' | 'export'
   const name = (reg.name || '').toLowerCase();
   const pollutants = (reg.pollutants || '').toLowerCase();
-
-  // Pronoun helpers based on context
   const your      = context === 'import' ? 'The country you import from and its' : context === 'export' ? 'The country you export to and its' : 'Your';
   const yourLower = context === 'import' ? 'the country you import from and its' : context === 'export' ? 'the country you export to and its' : 'your';
   const youMay    = context === 'import' ? 'Suppliers in this country may'        : context === 'export' ? 'Buyers or operators in this market may' : 'You may';
   const yourOps   = context === 'import' ? 'Operations in the country you import from' : context === 'export' ? 'Operations in the country you export to' : 'Your operations';
 
+  function sw(key, label, text) { return { key, label, text }; }
+
   if (name.includes('cbam') || name.includes('carbon border') || name.includes('border adjustment'))
-    return context === 'export'
-      ? 'This market applies a carbon border adjustment mechanism. Carbon-intensive goods you export here may be subject to additional levies, increasing your cost to serve.'
-      : context === 'import'
-      ? 'This sourcing country has a carbon border mechanism. Goods imported from here may carry embedded carbon costs that affect your supply chain pricing.'
-      : 'Import prices for carbon-intensive goods into this jurisdiction are likely to rise, potentially affecting your cost base and competitiveness.';
+    return sw('cbam', 'Carbon border adjustment risk',
+      context === 'export'
+        ? 'This market applies a carbon border adjustment mechanism. Carbon-intensive goods you export here may be subject to additional levies, increasing your cost to serve.'
+        : context === 'import'
+        ? 'This sourcing country has a carbon border mechanism. Goods imported from here may carry embedded carbon costs that affect your supply chain pricing.'
+        : 'Import prices for carbon-intensive goods into this jurisdiction are likely to rise, potentially affecting your cost base and competitiveness.');
 
   if (name.includes('cap-and-trade') || name.includes('cap and trade') || name.includes('emission trading') || name.includes(' ets ') || name.includes('allowances'))
-    return `${youMay} need to purchase and surrender emission allowances under this scheme, creating compliance costs and ongoing monitoring and reporting obligations.`;
+    return sw('ets', 'Emissions trading obligations',
+      `${youMay} need to purchase and surrender emission allowances under this scheme, creating compliance costs and ongoing monitoring and reporting obligations.`);
 
-  // Treaty participation — Kigali Amendment and Global Methane Pledge
   if (name.includes('global methane pledge') || name.includes('methane pledge'))
-    return 'This country has committed to the Global Methane Pledge, signalling likely future regulation of methane emissions. While not yet a direct compliance obligation, it indicates regulatory tightening ahead in this jurisdiction.';
+    return sw('pledge', 'Future methane regulation signal',
+      'This country has committed to the Global Methane Pledge, signalling likely future regulation of methane emissions. While not yet a direct compliance obligation, it indicates regulatory tightening ahead in this jurisdiction.');
+
   if (name.includes('kigali amendment participant'))
-    return 'This country is a signatory to the Kigali Amendment to the Montreal Protocol, committing to phase down HFCs. Expect tightening regulations on refrigerants and cooling equipment in this jurisdiction.';
+    return sw('kigali', 'HFC phase-down commitment',
+      'This country is a signatory to the Kigali Amendment to the Montreal Protocol, committing to phase down HFCs. Expect tightening regulations on refrigerants and cooling equipment in this jurisdiction.');
 
   if (pollutants.includes('hfc') && (name.includes('kigali') || name.includes('hfc') || name.includes('refrigerant') || name.includes('f-gas')))
-    return `${your} refrigeration and cooling equipment may require upgrades or phase-downs. Certified technician handling, import restrictions, and regular leak inspections may apply.`;
+    return sw('hfc', 'Refrigerant phase-down obligations',
+      `${your} refrigeration and cooling equipment may require upgrades or phase-downs. Certified technician handling, import restrictions, and regular leak inspections may apply.`);
 
   if (pollutants.includes('methane') && (name.includes('oil') || name.includes('gas') || name.includes('upstream') || name.includes('flaring') || name.includes('venting')))
-    return `${yourOps} may face restrictions on venting and flaring, LDAR (leak detection and repair) program requirements, and enhanced emissions monitoring obligations.`;
+    return sw('methane_og', 'Venting & flaring restrictions',
+      `${yourOps} may face restrictions on venting and flaring, LDAR (leak detection and repair) program requirements, and enhanced emissions monitoring obligations.`);
 
   if (pollutants.includes('methane'))
-    return `Methane emissions from ${yourLower} operations may be subject to monitoring, reporting, and reduction requirements. Waste management and agricultural operations are particularly affected.`;
+    return sw('methane', 'Methane monitoring & reporting',
+      `Methane emissions from ${yourLower} operations may be subject to monitoring, reporting, and reduction requirements. Waste management and agricultural operations are particularly affected.`);
 
   if (pollutants.includes('nox') || name.includes('air quality'))
-    return `${your} vehicles, boilers, or industrial equipment may be subject to emission limits. Fleet upgrades, operational changes, or permit requirements may apply.`;
+    return sw('nox', 'Equipment emission limits',
+      `${your} vehicles, boilers, or industrial equipment may be subject to emission limits. Fleet upgrades, operational changes, or permit requirements may apply.`);
 
   if (name.includes('reporting') || name.includes('registry') || name.includes('inventory') || name.includes('disclosure'))
-    return `${youMay} be required to measure, verify, and report greenhouse gas emissions publicly in this jurisdiction. This typically requires monitoring systems and third-party verification.`;
+    return sw('reporting', 'GHG reporting requirements',
+      `${youMay} be required to measure, verify, and report greenhouse gas emissions publicly in this jurisdiction. This typically requires monitoring systems and third-party verification.`);
 
   if (name.includes('biomethane') || name.includes('renewable gas') || name.includes('biogas'))
-    return `${youMay} be eligible for incentives or subsidies related to biomethane production or use in this jurisdiction, which could offset compliance costs or create revenue opportunities.`;
+    return sw('biomethane', 'Biomethane incentive eligibility',
+      `${youMay} be eligible for incentives or subsidies related to biomethane production or use in this jurisdiction, which could offset compliance costs or create revenue opportunities.`);
 
   const howAffects = reg.how_affects || '';
   if (howAffects && howAffects !== 'N/A' && howAffects !== 'nan' && howAffects.length > 20)
-    return howAffects;
-  return 'Review this regulation with your compliance team to understand specific obligations and timelines that apply to your operations.';
+    return sw('specific_' + (reg.name || '').slice(0, 30), 'Specific obligation', howAffects);
+
+  return sw('general', 'General compliance review',
+    'Review this regulation with your compliance team to understand specific obligations and timelines that apply to your operations.');
 }
 // ─── COUNTRY LIST ────────────────────────────────────────────
 function getCountryList() {
@@ -1063,7 +1074,6 @@ function showResultsTab(tab) {
 }
 
 function regCard(reg, context) {
-  const soWhat = getSoWhat(reg, context || 'domestic');
   const url = safeUrl(reg.website);
   const treaty = isTreatyEntry(reg);
   const regJson = JSON.stringify(reg).replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -1073,7 +1083,6 @@ function regCard(reg, context) {
       <span class="reg-row-jurisdiction">${esc(reg.jurisdiction || '')}</span>
     </div>
     <div class="reg-row-pollutants">${esc(reg.pollutants)}</div>
-    <div class="reg-row-sowhat">${esc(soWhat)}</div>
     ${url ? `<div class="reg-row-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View source</a></div>` : ''}
     <div class="reg-row-cta">View full details →</div>
   </div>`;
@@ -1110,16 +1119,40 @@ function renderGroupedByCountry(regs, context, collapsible = false) {
           <span class="country-group-count" style="margin-left:8px;">${label}</span>
         </div>
       </div>`;
-    const rows = sorted.map(r => regCard(r, context)).join('');
+
+    // Group regulations by impact key within this country
+    const impactGroups = [];
+    const impactSeen = {};
+    sorted.forEach(r => {
+      const sw = getSoWhat(r, context);
+      const key = sw.key;
+      if (!impactSeen[key]) {
+        impactSeen[key] = { label: sw.label, text: sw.text, regs: [] };
+        impactGroups.push(impactSeen[key]);
+      }
+      impactSeen[key].regs.push(r);
+    });
+
+    const body = impactGroups.map(ig => `
+      <div class="impact-group">
+        <div class="impact-group-heading">
+          <span class="impact-group-label">${esc(ig.label)}</span>
+          <p class="impact-group-text">${esc(ig.text)}</p>
+        </div>
+        <div class="impact-group-regs">
+          ${ig.regs.map(r => regCard(r, context)).join('')}
+        </div>
+      </div>`).join('');
+
     if (collapsible) {
       return `<div class="country-card">
         ${header}
-        <div class="country-card-body" id="${id}">${rows}</div>
+        <div class="country-card-body" id="${id}">${body}</div>
       </div>`;
     }
     return `<div class="country-card">
       ${header}
-      <div class="country-card-body">${rows}</div>
+      <div class="country-card-body">${body}</div>
     </div>`;
   }).join('');
 }
