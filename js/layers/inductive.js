@@ -858,6 +858,31 @@ function regulationMatchesSector(reg, sectorPollutants, sectorFlags) {
   return sectorFlags.some(f => reg[f] === true);
 }
 
+
+function isEUMember(countryName) {
+  // Check via countryData is_eu_member flag
+  const data = countryData[countryName] ||
+    countryData[normalizeCountryName(countryName)];
+  if (data && data.is_eu_member) return true;
+
+  // Fallback: hardcoded EU member list
+  const EU_MEMBERS = new Set(['Austria','Belgium','Bulgaria','Croatia','Cyprus','Czech Republic','Denmark','Estonia','Finland','France','Germany','Greece','Hungary','Ireland','Italy','Latvia','Lithuania','Luxembourg','Malta','Netherlands','Poland','Portugal','Romania','Slovakia','Slovenia','Spain','Sweden']);
+  return EU_MEMBERS.has(countryName);
+}
+
+function getEURegs(sectorPollutants, sectorFlags) {
+  const euRegs = findCountryRegs('European Union');
+  return euRegs
+    .filter(r => {
+      if (r.still_in_effect === 'N') return false;
+      const pol = (r.pollutants || '').trim().toLowerCase();
+      const hasPollutantData = pol.length > 0 && pol !== 'none specified';
+      if (!hasPollutantData) return true; // broad/untagged — include for all sectors
+      return regulationMatchesSector(r, sectorPollutants || [], sectorFlags || []);
+    })
+    .map(r => ({ ...r, country: 'European Union' }));
+}
+
 function findCountryRegs(countryName) {
   if (countryData[countryName]) return countryData[countryName].regulations || [];
   const normalized = normalizeCountryName(countryName);
@@ -1105,7 +1130,7 @@ function isTreatyEntry(r) {
   return name.includes('kigali amendment participant') || name.includes('global methane pledge') || name.includes('methane pledge');
 }
 
-function renderGroupedByCountry(regs, context, collapsible = false) {
+function renderGroupedByCountry(regs, context, collapsible = false, sectorPollutants, sectorFlags) {
   const groups = [];
   const seen = {};
   regs.forEach(r => {
@@ -1144,7 +1169,7 @@ function renderGroupedByCountry(regs, context, collapsible = false) {
       impactSeen[key].regs.push(r);
     });
 
-    const body = impactGroups.map(ig => `
+    const countryBody = impactGroups.map(ig => `
       <div class="impact-group">
         <div class="impact-group-heading">
           <span class="impact-group-label">${esc(ig.label)}</span>
@@ -1154,6 +1179,8 @@ function renderGroupedByCountry(regs, context, collapsible = false) {
           ${ig.regs.map(r => regCard(r, context)).join('')}
         </div>
       </div>`).join('');
+
+    const body = countryBody;
 
     if (collapsible) {
       return `<div class="country-card">
@@ -1177,6 +1204,51 @@ function toggleCountryGroup(id) {
   if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
+
+function renderEUCardIfNeeded(countries, context) {
+  // Only render once if any of the countries are EU members
+  const hasEUMember = countries.some(c => c !== '__none__' && isEUMember(c));
+  if (!hasEUMember) return '';
+
+  const euRawRegs = (countryData['European Union'] || { regulations: [] }).regulations || [];
+  if (euRawRegs.length === 0) return '';
+
+  const euRegs = euRawRegs.map(r => ({ ...r, country: 'European Union' }));
+  const euGroups = [];
+  const euSeen = {};
+  euRegs.forEach(r => {
+    const sw = getSoWhat(r, context);
+    if (!euSeen[sw.key]) { euSeen[sw.key] = { label: sw.label, text: sw.text, regs: [] }; euGroups.push(euSeen[sw.key]); }
+    euSeen[sw.key].regs.push(r);
+  });
+
+  const flagImg = `<img src="https://flagcdn.com/w80/eu.png" style="height:16px;border-radius:2px;margin-right:8px;vertical-align:middle;" onerror="this.style.display='none'">`;
+  const label = euRegs.length + ' regulation' + (euRegs.length === 1 ? '' : 's');
+  const id = 'eu-card-' + context;
+
+  return `<div class="country-card">
+    <div class="country-card-header collapsible-heading" onclick="toggleCountryGroup('${id}')">
+      <div style="display:flex;align-items:center;">
+        <span class="collapse-arrow" id="${id}-arrow">▼</span>
+        ${flagImg}<span class="country-card-name">European Union</span>
+        <span class="country-group-count" style="margin-left:8px;">${label} — applicable to all EU member states</span>
+      </div>
+    </div>
+    <div class="country-card-body" id="${id}">
+      ${euGroups.map(ig => `
+      <div class="impact-group">
+        <div class="impact-group-heading">
+          <span class="impact-group-label">${esc(ig.label)}</span>
+          <p class="impact-group-text">${esc(ig.text)}</p>
+        </div>
+        <div class="impact-group-regs">
+          ${ig.regs.map(r => regCard(r, context)).join('')}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 function renderDomesticTab() {
   const regs = inductiveResults.domestic;
   if (regs.length === 0) return `<div class="results-empty">
@@ -1184,7 +1256,8 @@ function renderDomesticTab() {
     <p class="results-empty-hint">This may mean your country's data isn't fully tagged yet for your sector, or regulations haven't been added. Check back as data is added on an ongoing basis.</p>
   </div>`;
   return `<h3 class="results-section-heading">Regulations in <strong>${esc(wizardProfile.hq)}</strong> relevant to your sector — ${regs.length} found</h3>` +
-    renderGroupedByCountry(regs, 'domestic');
+    renderGroupedByCountry(regs, 'domestic', true, inductiveResults._sectorPollutants, inductiveResults._sectorFlags) +
+    renderEUCardIfNeeded([wizardProfile.hq], 'domestic');
 }
 
 function renderImportsTab() {
@@ -1198,7 +1271,8 @@ function renderImportsTab() {
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
   return `<h3 class="results-section-heading">Regulations in countries you source from — ${sources.length} found</h3>` +
-    renderGroupedByCountry(sources, 'import', true);
+    renderGroupedByCountry(sources, 'import', true, inductiveResults._sectorPollutants, inductiveResults._sectorFlags) +
+    renderEUCardIfNeeded(wizardProfile.sources, 'import');
 }
 
 function renderExportsTab() {
@@ -1212,7 +1286,8 @@ function renderExportsTab() {
       <p class="results-empty-hint">Data is added on an ongoing basis. Check back as coverage expands.</p>
     </div>`;
   return `<h3 class="results-section-heading">Regulations in countries you export to — ${exportRegs.length} found</h3>` +
-    renderGroupedByCountry(exportRegs, 'export', true);
+    renderGroupedByCountry(exportRegs, 'export', true, inductiveResults._sectorPollutants, inductiveResults._sectorFlags) +
+    renderEUCardIfNeeded(wizardProfile.exports, 'export');
 }
 
 function incentiveCard(p) {

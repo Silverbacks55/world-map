@@ -1991,3 +1991,20 @@ transform: translate(-50%, -50%) !important;
 }
 .region-btn:hover { background: #f0f7ed; }
 .region-btn.active { background: #1e3d0f; color: white; }
+
+/* EU-level regulations section within country card */
+.eu-section {
+    border-top: 6px solid #f4f6f3;
+    margin-top: 2px;
+}
+.eu-section-header {
+    padding: 8px 16px;
+    background: #f0f7ed;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e3d0f;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e0e0e0;
+    font-family: Arial, sans-serif;
+}
