@@ -842,9 +842,20 @@ function runMatchingAndShowResults() {
   renderResults();
 }
 
-function regulationMatchesSector(reg, sectorPollutants) {
+function regulationMatchesSector(reg, sectorPollutants, sectorFlags) {
+  // Step 1: pollutant must match
   const regPollutants = (reg.pollutants || '').toLowerCase();
-  return sectorPollutants.some(p => regPollutants.includes(p.toLowerCase()));
+  const pollutantMatch = sectorPollutants.some(p => regPollutants.includes(p.toLowerCase()));
+  if (!pollutantMatch) return false;
+
+  // Step 2: if the regulation has ANY industry flags set, at least one must
+  // overlap with the user's sector flags. If no flags set, show to everyone.
+  const ALL_FLAGS = ['hvac','food_agriculture','trading_tax_systems','fossil_fuel_production','solid_waste','transportation'];
+  const regHasFlags = ALL_FLAGS.some(f => reg[f] === true);
+  if (!regHasFlags) return true; // untagged = applies broadly to all
+
+  // Regulation is industry-specific — check for overlap with user's sector
+  return sectorFlags.some(f => reg[f] === true);
 }
 
 function findCountryRegs(countryName) {
@@ -863,7 +874,7 @@ function findCountryRegs(countryName) {
 function matchDomestic(sectorPollutants, sectorFlags) {
   if (!wizardProfile.hq) return [];
   let regs = findCountryRegs(wizardProfile.hq)
-    .filter(r => regulationMatchesSector(r, sectorPollutants))
+    .filter(r => regulationMatchesSector(r, sectorPollutants, sectorFlags))
     .filter(r => r.still_in_effect !== 'N')
     .map(r => ({ ...r, country: wizardProfile.hq }));
 
@@ -898,13 +909,13 @@ function matchImportExport(sectorPollutants, sectorFlags) {
   const results = { sources: [], exports: [] };
   wizardProfile.sources.filter(c => c !== '__none__').forEach(country => {
     findCountryRegs(country)
-      .filter(r => regulationMatchesSector(r, sectorPollutants))
+      .filter(r => regulationMatchesSector(r, sectorPollutants, sectorFlags))
       .filter(r => r.still_in_effect !== 'N')
       .forEach(r => results.sources.push({ ...r, country }));
   });
   wizardProfile.exports.filter(c => c !== '__none__').forEach(country => {
     findCountryRegs(country)
-      .filter(r => regulationMatchesSector(r, sectorPollutants))
+      .filter(r => regulationMatchesSector(r, sectorPollutants, sectorFlags))
       .filter(r => r.still_in_effect !== 'N')
       .forEach(r => results.exports.push({ ...r, country }));
   });
@@ -1621,13 +1632,137 @@ const SECTOR_POLLUTANT_PROFILE = {
   ]
 };
 
+
+// ─── EU (EEA) SECTOR POLLUTANT PROFILES ─────────────────────
+// Source: European Environment Agency GHG inventory 2022-2023
+// EEA indicators: greenhouse-gas-emissions-from-agriculture,
+// key-trends-and-drivers-in-ghg-emissions-in-the-eu
+// Non-CO2 super pollutant shares only (CO2 excluded)
+const SECTOR_POLLUTANT_PROFILE_EU = {
+  'Food & Beverage': [
+    { pollutant: 'HFC',     pct: 50, note: 'Commercial refrigeration — EU F-gas Regulation drives progressive phase-down of HFCs in food retail and cold chain' },
+    { pollutant: 'Methane', pct: 32, note: 'Organic waste from food processing, wastewater treatment; landfill gas from food waste' },
+    { pollutant: 'N2O',     pct: 18, note: 'Industrial combustion processes; some food processing byproducts' },
+  ],
+  'Agriculture & Livestock': [
+    { pollutant: 'Methane', pct: 57, note: 'Enteric fermentation 49% and manure management CH4 8% of EU agricultural GHG (EEA 2023)' },
+    { pollutant: 'N2O',     pct: 43, note: 'Agricultural soils 30% and manure management N2O 13% of EU agricultural GHG (EEA 2023)' },
+  ],
+  'Manufacturing & Industrial': [
+    { pollutant: 'NOx',           pct: 35, note: 'Industrial combustion; EU IED (Industrial Emissions Directive) sets limits on NOx' },
+    { pollutant: 'HFC',           pct: 28, note: 'Industrial refrigeration; EU F-gas Regulation phase-down schedule in force' },
+    { pollutant: 'Black Carbon',  pct: 22, note: 'Industrial combustion; significant in Eastern EU manufacturing' },
+    { pollutant: 'Other F-Gases', pct: 15, note: 'SF6 from electrical equipment; PFCs from aluminium and semiconductor production' },
+  ],
+  'Logistics & Transportation': [
+    { pollutant: 'NOx',          pct: 60, note: 'EU Euro VI standards for heavy vehicles; maritime and aviation under EU ETS from 2024' },
+    { pollutant: 'Black Carbon', pct: 32, note: 'Diesel freight — stricter than US due to Euro VI standards but still significant' },
+    { pollutant: 'Methane',      pct: 8,  note: 'LNG-powered shipping; CNG fleet vehicles' },
+  ],
+  'Real Estate & Construction': [
+    { pollutant: 'HFC',     pct: 62, note: 'EU F-gas Regulation: HFCs in HVAC subject to quota phase-down since 2015' },
+    { pollutant: 'NOx',     pct: 22, note: 'Building heating systems; gas boilers subject to ErP Directive' },
+    { pollutant: 'Methane', pct: 16, note: 'Natural gas distribution leaks; EU Methane Regulation extends to buildings sector' },
+  ],
+  'Retail & Consumer Goods': [
+    { pollutant: 'HFC',     pct: 72, note: 'Supermarket refrigeration — largest commercial HFC source in EU; subject to EU F-gas quotas' },
+    { pollutant: 'NOx',     pct: 18, note: 'Delivery fleet; store heating' },
+    { pollutant: 'Methane', pct: 10, note: 'Natural gas heating; minor fugitives' },
+  ],
+  'Waste Management & Recycling': [
+    { pollutant: 'Methane', pct: 82, note: 'EU Landfill Directive has reduced landfill methane since 1999 but landfills remain primary source' },
+    { pollutant: 'N2O',     pct: 18, note: 'Wastewater treatment; composting facilities' },
+  ],
+  'Energy & Utilities': [
+    { pollutant: 'Methane',       pct: 52, note: 'Fugitive emissions from natural gas networks; EU Methane Regulation (2024) targets upstream and midstream' },
+    { pollutant: 'N2O',           pct: 22, note: 'Stationary combustion in power generation' },
+    { pollutant: 'Other F-Gases', pct: 26, note: 'SF6 from electrical transmission equipment — significant in EU grid infrastructure' },
+  ],
+  'Chemical & Pharmaceutical': [
+    { pollutant: 'Other F-Gases', pct: 38, note: 'EU F-gas Regulation; PFCs from industrial processes; SF6 from chemical manufacturing' },
+    { pollutant: 'HFC',           pct: 35, note: 'ODS substitute emissions; EU phase-down more advanced than global average' },
+    { pollutant: 'N2O',           pct: 27, note: 'Nitric acid and adipic acid production — EU ETS covers these emissions' },
+  ],
+  'Technology & Data Centers': [
+    { pollutant: 'HFC',           pct: 60, note: 'Data center cooling; EU Green Deal driving efficiency improvements' },
+    { pollutant: 'Other F-Gases', pct: 28, note: 'SF6 in high-voltage equipment; NF3 from semiconductor manufacturing' },
+    { pollutant: 'NOx',           pct: 12, note: 'Backup diesel generators' },
+  ],
+  'Financial Services & Insurance': [
+    { pollutant: 'HFC', pct: 65, note: 'Office HVAC systems; EU F-gas Regulation applies to commercial buildings' },
+    { pollutant: 'NOx', pct: 35, note: 'Office heating systems' },
+  ],
+  'Healthcare': [
+    { pollutant: 'HFC', pct: 50, note: 'Medical refrigeration and HVAC; EU hospitals subject to F-gas Regulation' },
+    { pollutant: 'N2O', pct: 38, note: 'Anaesthetic gas — EU hospitals significant N2O emitters; some countries mandating capture systems' },
+    { pollutant: 'NOx', pct: 12, note: 'Facility heating and medical waste incineration' },
+  ],
+  'Hospitality & Tourism': [
+    { pollutant: 'HFC',     pct: 48, note: 'Hotel and restaurant HVAC/refrigeration; EU F-gas Regulation phase-down applies' },
+    { pollutant: 'Methane', pct: 28, note: 'Food waste decomposition; natural gas cooking' },
+    { pollutant: 'NOx',     pct: 24, note: 'Building heating; commercial kitchen combustion' },
+  ],
+  'Mining & Extractives': [
+    { pollutant: 'Methane',      pct: 42, note: 'EU coal mine methane — reduced sharply as coal mining declines but still significant in Poland, Czech Republic' },
+    { pollutant: 'NOx',          pct: 35, note: 'Mining equipment; EU emissions standards stricter than global average' },
+    { pollutant: 'Black Carbon', pct: 23, note: 'Diesel mining equipment; underground operations' },
+  ],
+  'Media, Entertainment & Events': [
+    { pollutant: 'NOx',          pct: 52, note: 'Event logistics; touring transport' },
+    { pollutant: 'Black Carbon',  pct: 28, note: 'Diesel generators for events and productions' },
+    { pollutant: 'HFC',           pct: 20, note: 'Venue HVAC; broadcast facility cooling' },
+  ],
+  'Education & Research': [
+    { pollutant: 'HFC',     pct: 55, note: 'Campus HVAC and laboratory refrigeration; EU F-gas Regulation applies' },
+    { pollutant: 'NOx',     pct: 28, note: 'Building heating systems' },
+    { pollutant: 'N2O',     pct: 17, note: 'Laboratory gas use; agricultural research facilities' },
+  ],
+  'Telecommunications': [
+    { pollutant: 'HFC',           pct: 58, note: 'Network equipment cooling' },
+    { pollutant: 'Other F-Gases', pct: 28, note: 'SF6 in electrical switchgear — EU is phasing this out in new equipment' },
+    { pollutant: 'NOx',           pct: 14, note: 'Backup generators at network sites' },
+  ],
+  'Government & Public Sector': [
+    { pollutant: 'HFC',     pct: 42, note: 'Government building HVAC; EU public sector subject to Energy Performance of Buildings Directive' },
+    { pollutant: 'NOx',     pct: 35, note: 'Public vehicle fleets; EU Clean Vehicles Directive' },
+    { pollutant: 'Methane', pct: 23, note: 'Public waste management; EU municipal landfills' },
+  ],
+  'Professional Services': [
+    { pollutant: 'HFC', pct: 68, note: 'Office building HVAC; EU F-gas Regulation applies to commercial premises' },
+    { pollutant: 'NOx', pct: 32, note: 'Business travel and building heating' },
+  ],
+  'Other': [
+    { pollutant: 'Methane',      pct: 32, note: 'Variable by activity' },
+    { pollutant: 'HFC',          pct: 28, note: 'Variable by activity' },
+    { pollutant: 'NOx',          pct: 20, note: 'Variable by activity' },
+    { pollutant: 'N2O',          pct: 12, note: 'Variable by activity' },
+    { pollutant: 'Black Carbon', pct:  8, note: 'Variable by activity' },
+  ]
+};
+
+// ─── ACTIVE REGION STATE ─────────────────────────────────────
+let exposureRegion = 'us'; // 'us' | 'eu'
+
+function setExposureRegion(region) {
+  exposureRegion = region;
+  document.getElementById('resultsContent').innerHTML = renderPollutantExposureTab();
+}
+
 function renderPollutantExposureTab() {
   const sector = wizardProfile.sector;
-  const profile = SECTOR_POLLUTANT_PROFILE[sector];
+  const profileUS = SECTOR_POLLUTANT_PROFILE[sector];
+  const profileEU = SECTOR_POLLUTANT_PROFILE_EU[sector];
+  const profile = exposureRegion === 'eu' ? (profileEU || profileUS) : profileUS;
 
   if (!profile) {
     return `<div class="results-empty"><p>No pollutant profile available for this sector.</p></div>`;
   }
+
+  const regionToggle = `<div class="region-toggle">
+    <span class="region-toggle-label">Emissions profile region:</span>
+    <button class="region-btn${exposureRegion === 'us' ? ' active' : ''}" onclick="setExposureRegion('us')">United States (EPA)</button>
+    <button class="region-btn${exposureRegion === 'eu' ? ' active' : ''}" onclick="setExposureRegion('eu')">European Union (EEA)</button>
+  </div>`;
 
   // Draw SVG pie chart
   const size = 300;
@@ -1668,6 +1803,7 @@ function renderPollutantExposureTab() {
     </div>`).join('');
 
   const subsectorNote = wizardProfile.subsector ? ` (${esc(wizardProfile.subsector)})` : '';
+  const sourceLabel = exposureRegion === 'eu' ? 'EU EEA GHG Inventory 2022-2023 (source: eea.europa.eu)' : 'EPA Inventory of U.S. GHG Emissions and Sinks 1990–2022 (EPA 430-R-24-004, April 2024) and EPA GHGRP 2023';
 
   return `
     <h3 class="results-section-heading">Estimated super pollutant emissions profile for <strong>${esc(sector)}${subsectorNote}</strong></div>

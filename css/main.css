@@ -1937,7 +1937,7 @@ transform: translate(-50%, -50%) !important;
 
 /* Impact grouping within country card */
 .impact-group {
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 6px solid #f4f6f3;
 }
 .impact-group:last-child { border-bottom: none; }
 .impact-group-heading {
@@ -1964,3 +1964,30 @@ transform: translate(-50%, -50%) !important;
 }
 .impact-group-regs { }
 .impact-group-regs .reg-row { padding-left: 24px; }
+
+/* Region toggle for pollutant exposure chart */
+.region-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.region-toggle-label {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+}
+.region-btn {
+    padding: 6px 14px;
+    border: 1.5px solid #1e3d0f;
+    border-radius: 5px;
+    background: white;
+    color: #1e3d0f;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.region-btn:hover { background: #f0f7ed; }
+.region-btn.active { background: #1e3d0f; color: white; }
