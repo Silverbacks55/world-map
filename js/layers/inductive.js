@@ -197,6 +197,7 @@ function getSoWhat(reg, context) {
 // ─── COUNTRY LIST ────────────────────────────────────────────
 function getCountryList() {
   return [
+    'United States',
     'Afghanistan',
     'Albania',
     'Algeria',
@@ -256,7 +257,6 @@ function getCountryList() {
     'Estonia',
     'Eswatini',
     'Ethiopia',
-    'European Union',
     'Federated States of Micronesia',
     'Fiji',
     'Finland',
@@ -398,7 +398,6 @@ function getCountryList() {
     'Ukraine',
     'United Arab Emirates',
     'United Kingdom',
-    'United States',
     'Uruguay',
     'Uzbekistan',
     'Vanuatu',
@@ -830,11 +829,32 @@ function runMatchingAndShowResults() {
   const sectorPollutants = sectorInfo.pollutants;
   const sectorFlags = sectorInfo.industryFlags;
 
+  // Ensure VCM and biomethane data are loaded — they load lazily from the map
+  // but may not be loaded if user went straight to the estimator
+  const vcmReady = vcmDataLoaded && vcmData;
+  const bioReady = biomethaneDataLoaded && biomethaneData;
+
+  if (!vcmReady || !bioReady) {
+    // Load missing data then re-run
+    const loaders = [];
+    if (!vcmReady) loaders.push(loadVCMData());
+    if (!bioReady) loaders.push(loadBiomethaneData());
+    Promise.all(loaders).then(() => {
+      _doMatch(sectorPollutants, sectorFlags);
+    });
+  } else {
+    _doMatch(sectorPollutants, sectorFlags);
+  }
+}
+
+function _doMatch(sectorPollutants, sectorFlags) {
   inductiveResults = {
     domestic: matchDomestic(sectorPollutants, sectorFlags),
     importExport: matchImportExport(sectorPollutants, sectorFlags),
     incentives: matchIncentives(),
-    vcm: matchVCM(sectorPollutants)
+    vcm: matchVCM(sectorPollutants),
+    _sectorPollutants: sectorPollutants,
+    _sectorFlags: sectorFlags
   };
 
   document.getElementById('inductiveOverlay').style.display = 'none';
@@ -969,39 +989,55 @@ function matchIncentives() {
 }
 
 // Keywords that indicate a VCM project covers a given pollutant
-function projectMatchesPollutant(pType, pollutant) {
+function projectMatchesPollutant(pType, pollutant, superPollutant) {
   const pLow = pollutant.toLowerCase();
+  // First: check the Super Pollutant column directly (most reliable)
+  if (superPollutant) {
+    const spLow = superPollutant.toLowerCase();
+    if (spLow.includes(pLow)) return true;
+    // Handle common variations
+    if (pLow === 'hfc' && (spLow.includes('hfc') || spLow.includes('f-gas') || spLow.includes('halocarbons'))) return true;
+    if (pLow === 'other f-gases' && (spLow.includes('f-gas') || spLow.includes('pfc') || spLow.includes('sf6'))) return true;
+  }
+  // Fallback: keyword inference on project type string
   return pType.includes(pLow) ||
     (pLow === 'methane' && /landfill|livestock|coal|oil|gas|waste|manure|rice|biogas|fugitive/.test(pType)) ||
-    (pLow === 'hfc' && /refriger|hvac|cooling|f-gas|fluorin/.test(pType)) ||
+    (pLow === 'hfc' && /refriger|hvac|cooling|f-gas|fluorin|halocarbon|ods/.test(pType)) ||
     (pLow === 'nox' && /transport|vehicle|fuel|combustion/.test(pType)) ||
     (pLow === 'black carbon' && /cookstove|combustion|fuel|diesel/.test(pType)) ||
     (pLow === 'n2o' && /nitrous|fertilizer|agriculture|soil|manure/.test(pType));
 }
 
 // Keywords mapping sector NAICS/activity to VCM project type
-const SECTOR_VCM_KEYWORDS = {
-  'Food & Beverage':          /food|beverage|dairy|livestock|agriculture|waste|landfill/,
-  'Agriculture & Livestock':  /agriculture|livestock|dairy|enteric|manure|rice|soil|cropland/,
-  'Manufacturing & Industrial': /industrial|manufacturing|cement|steel|chemical|fuel switching/,
-  'Logistics & Transportation': /transport|vehicle|fleet|aviation|shipping|fuel/,
-  'Real Estate & Construction': /building|construction|efficiency|hvac|fuel switching/,
-  'Retail & Consumer Goods':  /retail|waste|landfill|refriger|cold chain/,
-  'Waste Management & Recycling': /landfill|waste|wastewater|composting|biogas|biomethane/,
-  'Energy & Utilities':       /energy|fuel switching|renewable|solar|wind|coal|oil|gas|power/,
-  'Chemical & Pharmaceutical': /chemical|industrial|refriger|f-gas|fluorin/,
-  'Technology & Data Centers': /efficiency|renewable|energy|building/,
-  'Financial Services & Insurance': /efficiency|renewable|building|offset/,
-  'Healthcare':               /efficiency|waste|renewable|building/,
-  'Hospitality & Tourism':    /efficiency|waste|renewable|building|food/,
-  'Mining & Extractives':     /coal|mining|oil|gas|fugitive|methane/,
-  'Media, Entertainment & Events': /transport|waste|renewable|efficiency/,
-  'Education & Research':     /efficiency|renewable|building|waste/,
-  'Telecommunications':       /efficiency|renewable|building/,
-  'Government & Public Sector': /waste|transport|renewable|efficiency|landfill/,
-  'Professional Services':    /efficiency|renewable|building/,
-  'Other':                    /.*/,
+// ─── VCM PROJECT TYPE → SECTOR MAPPING ──────────────────────
+// Explicit lookup replacing keyword regex. Each Project Type Filter value
+// maps to the GBB sectors it is relevant to.
+// Trim project_type_filter before lookup (some values have trailing spaces).
+const VCM_SECTOR_MAP = {
+  'Livestock':                      ['Agriculture & Livestock', 'Food & Beverage'],
+  'Organic Waste Composting':       ['Agriculture & Livestock', 'Food & Beverage', 'Waste Management & Recycling'],
+  'Nitrogen Management':            ['Agriculture & Livestock', 'Food & Beverage', 'Chemical & Pharmaceutical'],
+  'Landfill Gas Capture/ Combustion': ['Waste Management & Recycling', 'Food & Beverage', 'Real Estate & Construction'],
+  'Energy industry: Waste handling': ['Energy & Utilities', 'Waste Management & Recycling'],
+  'Waste handling & disposal':      ['Waste Management & Recycling', 'Manufacturing & Industrial', 'Government & Public Sector'],
+  'Manufacturing: Waste handling':  ['Manufacturing & Industrial', 'Chemical & Pharmaceutical'],
+  'Fugitive Emissions from Fuel':   ['Energy & Utilities', 'Mining & Extractives', 'Logistics & Transportation'],
+  'Coal Mine Methane':              ['Mining & Extractives', 'Energy & Utilities'],
+  'Mine Methane Capture':           ['Mining & Extractives', 'Energy & Utilities'],
+  'Fugitive emissions halocarbons': ['Retail & Consumer Goods', 'Real Estate & Construction', 'Technology & Data Centers', 'Healthcare', 'Hospitality & Tourism', 'Food & Beverage', 'Manufacturing & Industrial'],
+  'Ozone Depleting Substances':     ['Manufacturing & Industrial', 'Chemical & Pharmaceutical', 'Real Estate & Construction', 'Technology & Data Centers'],
+  'Chemical industry':              ['Chemical & Pharmaceutical', 'Manufacturing & Industrial', 'Energy & Utilities'],
+  'Nitric Acid':                    ['Chemical & Pharmaceutical', 'Manufacturing & Industrial'],
+  'Adipic Acid':                    ['Chemical & Pharmaceutical', 'Manufacturing & Industrial'],
 };
+
+function vcmMatchesSector(projectTypeFilter, sector) {
+  if (!projectTypeFilter) return false;
+  const key = projectTypeFilter.trim();
+  const mapped = VCM_SECTOR_MAP[key];
+  if (!mapped) return false;
+  return mapped.includes(sector);
+}
 
 function matchVCM(sectorPollutants) {
   if (!vcmDataLoaded || !vcmData) return { country: [], emissions: [], sector: [] };
@@ -1012,7 +1048,6 @@ function matchVCM(sectorPollutants) {
     ...wizardProfile.exports.filter(c => c !== '__none__')
   ].filter(Boolean));
 
-  const sectorKeywords = SECTOR_VCM_KEYWORDS[wizardProfile.sector] || SECTOR_VCM_KEYWORDS['Other'];
   const seenCountry = new Set();
   const seenEmissions = new Set();
   const seenSector = new Set();
@@ -1032,17 +1067,17 @@ function matchVCM(sectorPollutants) {
       }
 
       // Section 2: Emissions match — tag with which molecule(s) matched
-      const matchedPollutants = sectorPollutants.filter(pol => projectMatchesPollutant(pType, pol));
+      const matchedPollutants = sectorPollutants.filter(pol => projectMatchesPollutant(pType, pol, p.super_pollutant));
       if (matchedPollutants.length > 0 && !seenEmissions.has(key)) {
         seenEmissions.add(key);
         emissionsMatches.push({ ...proj, _matchedMolecule: matchedPollutants[0] });
       }
 
-      // Section 3: Sector match — tag with project_type_filter as the grouping category
-      if (sectorKeywords.test(pType) && !seenSector.has(key)) {
+      // Section 3: Sector match — explicit lookup table
+      const ptfValue = (p.project_type_filter || '').trim();
+      if (vcmMatchesSector(ptfValue, wizardProfile.sector) && !seenSector.has(key)) {
         seenSector.add(key);
-        const category = p.project_type_filter || p.project_type || 'Other';
-        sectorMatches.push({ ...proj, _sectorCategory: category });
+        sectorMatches.push({ ...proj, _sectorCategory: ptfValue || p.project_type || 'Other' });
       }
     });
   });
@@ -1300,7 +1335,6 @@ function incentiveCard(p) {
     </div>
     ${p.category ? `<div class="reg-row-pollutants">Category: ${esc(p.category)}</div>` : ''}
     ${p.instrument_type ? `<div class="reg-row-pollutants">Instrument: ${esc(p.instrument_type)}</div>` : ''}
-    <div class="reg-row-sowhat">Your company may be eligible for this incentive. Review eligibility criteria with your compliance team.</div>
     ${url ? `<div class="reg-row-link"><a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View program</a></div>` : ''}
     <div class="reg-row-cta">View full details →</div>
   </div>`;
@@ -1453,7 +1487,7 @@ function renderVCMTab() {
   if (emissions.length === 0) {
     html += `<p class="vcm-empty-section">No projects found matching your sector’s pollutant profile.</p>`;
   } else {
-    html += emissions.map(p => vcmCard(p)).join('');
+    html += vcmGroupedByCountry(emissions, 'vcm-e');
   }
   html += `</div>`;
 

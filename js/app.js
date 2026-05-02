@@ -556,6 +556,7 @@
                     proponent      : row['Proponent']                           || '',
                     project_type   : row['Project Type']                        || '',
                     project_type_filter : row['Project Type Filter']            || '',
+                    super_pollutant     : row['Super Pollutant']                || '',
                     status         : row['Status']                               || '',
                     annual_reductions: row['Estimated Annual Emission Reductions'] || '',
                     start_year     : startYear,
